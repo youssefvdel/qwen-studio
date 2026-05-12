@@ -1,9 +1,9 @@
 # Qwen Studio for Linux
 
-[![Version](https://img.shields.io/github/v/release/youssefvdel/qwen-studio-linux?label=version&color=blue)](https://github.com/youssefvdel/qwen-studio-linux/releases)
+[![Version](https://img.shields.io/github/v/release/youssefvdel/qwen-studio?label=version&color=blue)](https://github.com/youssefvdel/qwen-studio/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Linux-orange.svg)](https://github.com/youssefvdel/qwen-studio-linux/releases)
-[![Stars](https://img.shields.io/github/stars/youssefvdel/qwen-studio-linux?style=social)](https://github.com/youssefvdel/qwen-studio-linux/stargazers)
+[![Platform](https://img.shields.io/badge/platform-Linux-orange.svg)](https://github.com/youssefvdel/qwen-studio/releases)
+[![Stars](https://img.shields.io/github/stars/youssefvdel/qwen-studio?style=social)](https://github.com/youssefvdel/qwen-studio/stargazers)
 
 Open-source Qwen AI (Tongyi Qianwen) desktop client for Linux. Run Alibaba's Qwen models natively on Ubuntu, Fedora, Arch, and all Linux distributions with full MCP (Model Context Protocol) support.
 
@@ -16,27 +16,27 @@ The official Qwen Studio app only supports Windows and macOS. This project bring
 ### Option 1: AppImage (recommended — works on every distro)
 
 ```bash
-wget https://github.com/youssefvdel/qwen-studio-linux/releases/latest/download/Qwen-1.1.2-x86_64.AppImage
-chmod +x Qwen-1.1.2-x86_64.AppImage
-./Qwen-1.1.2-x86_64.AppImage
+wget https://github.com/youssefvdel/qwen-studio/releases/latest/download/Qwen-2.0.0-x86_64.AppImage
+chmod +x Qwen-2.0.0-x86_64.AppImage
+./Qwen-2.0.0-x86_64.AppImage
 ```
 
 ### Option 2: Debian/Ubuntu
 
 ```bash
-wget https://github.com/youssefvdel/qwen-studio-linux/releases/latest/download/qwen-studio_1.1.2_amd64.deb
-sudo apt install ./qwen-studio_1.1.2_amd64.deb
+wget https://github.com/youssefvdel/qwen-studio/releases/latest/download/qwen-studio_2.0.0_amd64.deb
+sudo apt install ./qwen-studio_2.0.0_amd64.deb
 qwen-studio
 ```
 
 ### Option 3: Fedora/RHEL
 
 ```bash
-sudo dnf install https://github.com/youssefvdel/qwen-studio-linux/releases/latest/download/qwen-studio-1.1.2.x86_64.rpm
+sudo dnf install https://github.com/youssefvdel/qwen-studio/releases/latest/download/qwen-studio-2.0.0.x86_64.rpm
 qwen-studio
 ```
 
-[All Downloads](https://github.com/youssefvdel/qwen-studio-linux/releases)
+[All Downloads](https://github.com/youssefvdel/qwen-studio/releases)
 
 ---
 
@@ -164,8 +164,8 @@ Built with Electron 34 + TypeScript, mirroring the official Qwen Studio app:
 ### Install & Run
 
 ```bash
-git clone https://github.com/youssefvdel/qwen-studio-linux.git
-cd qwen-studio-linux
+git clone https://github.com/youssefvdel/qwen-studio.git
+cd qwen-studio
 npm install
 npm start
 ```
@@ -187,7 +187,7 @@ npm run make:rpm    # Fedora/RHEL
 ### Project Structure
 
 ```
-qwen-studio-linux/
+qwen-studio/
 ├── src/
 │   ├── main/           # Electron main process
 │   │   ├── index.ts
@@ -261,7 +261,7 @@ The app automatically replaces `npx`, `bun`, and `uvx` commands with bundled run
 
 ## Skills System
 
-Create system prompts as `.md` files in `~/.config/qwen-studio-linux/skills/`. Inject into chat via the Skills menu.
+Create system prompts as `.md` files in `~/.config/qwen-studio/skills/`. Inject into chat via the Skills menu.
 
 ### Example
 
