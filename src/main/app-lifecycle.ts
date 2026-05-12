@@ -164,34 +164,62 @@ export function configureApp(): void {
 
 /**
  * Handle qwen:// deep link URLs.
+ * Windows app uses this exact pattern - validate and send "set_cookie" event.
  */
 export function handleDeepLink(
   url: string,
   mainWindow: BrowserWindow | null,
 ): void {
   console.log("[DeepLink] Handling URL:", url);
+  
+  // Validate URL format (same as Windows app)
+  if (!validateDeepLink(url)) {
+    console.log("[DeepLink] ❌ Invalid deep link format");
+    return;
+  }
+  
   const urlObj = new URL(url);
-  if (urlObj.pathname === "/open") {
-    const token = urlObj.searchParams.get("token");
-    if (token) {
-      console.log("[DeepLink] Auth token received, length:", token.length);
+  const action = urlObj.hostname; // "open"
+  const token = urlObj.searchParams.get("token");
+  
+  console.log("[DeepLink] Action:", action, "Token length:", token?.length);
+  
+  if (action === "open" && token) {
+    console.log("[DeepLink] ✅ Valid auth deep link received");
+    
+    // Focus existing window
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
       
-      // Focus existing window
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        if (mainWindow.isMinimized()) mainWindow.restore();
-        mainWindow.focus();
-        
-        // Send token to renderer
-        mainWindow.webContents.send("event_from_main", {
-          type: "auth_token",
-          payload: { token },
-        });
-        
-        console.log("[DeepLink] Token sent to renderer");
-      } else {
-        console.log("[DeepLink] No window available, token queued");
-      }
+      // Send set_cookie event (Windows app pattern)
+      console.log("[DeepLink] Sending set_cookie event to renderer");
+      mainWindow.webContents.send("event_from_main", {
+        type: "set_cookie",
+        payload: token,
+      });
+      
+      console.log("[DeepLink] ✅ Token sent to renderer");
+    } else {
+      console.log("[DeepLink] ❌ No window available");
     }
+  }
+}
+
+/**
+ * Validate deep link format (same as Windows app).
+ * Expected: qwen://open?token=xxx
+ */
+function validateDeepLink(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.protocol === "qwen:" &&
+      ["open"].includes(parsed.hostname) &&
+      (parsed.hostname !== "open" || !!parsed.searchParams.get("token"))
+    );
+  } catch {
+    return false;
   }
 }
 

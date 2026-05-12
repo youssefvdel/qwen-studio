@@ -316,6 +316,15 @@ app.whenReady().then(async () => {
     await ensureRuntimesExecutable();
     ensureSkillsDir();
 
+    // Register protocol client at runtime (like Windows app does)
+    const SCHEME = "qwen";
+    if (!app.isDefaultProtocolClient(SCHEME)) {
+      app.setAsDefaultProtocolClient(SCHEME);
+      console.log("[App] ✅ Protocol client registered:", SCHEME);
+    } else {
+      console.log("[App] ℹ️ Protocol client already registered:", SCHEME);
+    }
+
     // Setup protocol handler (qwen:// deep links)
     setupProtocolHandler({
       onDeepLink: (url) => handleDeepLink(url, mainWindow),

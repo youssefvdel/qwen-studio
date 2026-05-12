@@ -207,23 +207,23 @@
       document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     });
 
-    // Handle auth token from deep link (login callback)
-    window.electronAPI.on_event('auth_token', async (data) => {
-      console.log('[Renderer] Received auth token:', data?.token ? 'token present' : 'no token');
+    // Handle auth token from deep link (Windows app uses "set_cookie" event)
+    window.electronAPI.on_event('set_cookie', async (token) => {
+      console.log('[Renderer] Received set_cookie event, token length:', token?.length);
       
-      if (data?.token) {
+      if (token) {
         const webview = document.querySelector('webview');
         if (webview) {
           console.log('[Renderer] Setting auth cookie in webview...');
           
-          // Insert the auth token as a cookie in the webview
+          // Set cookies for chat.qwen.ai domain
           const setCookieScript = `
             (function() {
               try {
-                const token = '${data.token}';
+                const token = '${token}';
                 
                 // Set cookies for all possible domains
-                const domains = ['.qwen.ai', 'chat.qwen.ai', 'qwen.ai', '.aliyun.com', 'aliyun.com'];
+                const domains = ['.qwen.ai', 'chat.qwen.ai', 'qwen.ai'];
                 for (const domain of domains) {
                   document.cookie = 'token=' + token + '; domain=' + domain + '; path=/; secure; samesite=lax';
                   document.cookie = 'auth_token=' + token + '; domain=' + domain + '; path=/; secure; samesite=lax';
@@ -231,13 +231,12 @@
                 }
                 console.log('[Inject] Auth cookies set for all domains');
                 
-                // Also try localStorage as backup
+                // Also set in localStorage as backup
                 localStorage.setItem('qwen_auth_token', token);
                 localStorage.setItem('token', token);
                 localStorage.setItem('accessToken', token);
                 console.log('[Inject] LocalStorage set');
                 
-                // Return success
                 return 'cookies_set';
               } catch (e) {
                 console.error('[Inject] Failed to set auth:', e);
@@ -250,13 +249,23 @@
             const result = await webview.executeJavaScript(setCookieScript);
             console.log('[Renderer] Cookie injection result:', result);
             
-            // Navigate to chat.qwen.ai to trigger session recognition
+            // Navigate to chat.qwen.ai to apply the session
             console.log('[Renderer] Navigating to chat.qwen.ai...');
             webview.src = 'https://chat.qwen.ai';
           } catch (err) {
             console.error('[Renderer] Failed to inject cookie:', err);
           }
         }
+      }
+    });
+
+    // Handle auth token from deep link (also support "auth_token" event)
+    window.electronAPI.on_event('auth_token', async (data) => {
+      console.log('[Renderer] Received auth_token event:', data?.token ? 'token present' : 'no token');
+      
+      if (data?.token) {
+        // Reuse the set_cookie handler
+        window.electronAPI.emit('set_cookie', data.token);
       }
     });
 

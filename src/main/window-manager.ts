@@ -142,11 +142,14 @@ export function createWindow(deps: WindowManagerDeps): BrowserWindow {
   mainWindow.setAutoHideMenuBar(false);
   mainWindow.loadURL(WEBVIEW_URL);
 
-  // Intercept navigation to catch auth redirects and keep auth flows in-app
+  // Intercept ALL navigation for debugging
   mainWindow.webContents.on("will-navigate", (event, url) => {
+    console.log("[NAV] will-navigate:", url);
+    console.log("[NAV] resourceType:", "main-frame");
+    
     if (url.startsWith("qwen://")) {
       event.preventDefault();
-      console.log("[Window] Caught qwen:// redirect from webview:", url);
+      console.log("[Window] ✅ Caught qwen:// redirect:", url);
       deps.onDeepLink(url);
       return;
     }
@@ -164,11 +167,10 @@ export function createWindow(deps: WindowManagerDeps): BrowserWindow {
       "login.alibaba.com",
       "passport.aliyun.com",
       "auth.alipay.com",
+      "github.com",
+      "google.com",
+      "accounts.google.com",
     ];
-    
-    // Check for auth-related URLs that should stay in-app
-    const authPatterns = ["login", "auth", "oauth", "passport", "sso", "signin", "authorize"];
-    const isAuthUrl = authPatterns.some(p => url.toLowerCase().includes(p));
     
     try {
       const urlObj = new URL(url);
@@ -176,53 +178,67 @@ export function createWindow(deps: WindowManagerDeps): BrowserWindow {
         urlObj.hostname === host || urlObj.hostname.endsWith("." + host)
       );
       
-      // Check if URL has qwen:// callback parameter
-      const hasQwenCallback = url.includes("qwen://") || url.includes("callback=qwen");
-      
-      // Keep auth URLs in-app, block truly external navigation
       if (!isAllowed && !url.startsWith("data:")) {
-        if (isAuthUrl || hasQwenCallback) {
-          // Auth URL - prevent navigation, will be handled by setWindowOpenHandler
-          console.log("[Window] Blocking external auth navigation:", url);
-          event.preventDefault();
-          // Open auth in a popup window instead
-          const authWindow = new BrowserWindow({
-            width: 500,
-            height: 600,
-            title: "Sign in to Qwen",
-            parent: mainWindow,
-            modal: false,
-            webPreferences: {
-              partition: "", // Same session as main window
-            },
-          });
-          authWindow.loadURL(url);
-          setupAuthWindowHandlers(authWindow, mainWindow, deps);
-        } else {
-          // Non-auth external link - open in system browser
-          event.preventDefault();
-          shell.openExternal(url);
-        }
-      } else if (hasQwenCallback && isAllowed) {
-        // URL is on allowed host but has qwen:// callback - keep in main window
-        console.log("[Window] Allowing auth URL with qwen callback:", url);
+        console.log("[NAV] ❌ Blocking external navigation, opening in system browser:", url);
+        event.preventDefault();
+        shell.openExternal(url);
+      } else {
+        console.log("[NAV] ✅ Allowing navigation to:", url);
       }
     } catch (e) {
-      // Invalid URL, allow navigation
+      console.log("[NAV] ✅ Allowing (parse error):", url);
     }
   });
 
-  // Catch window.open with qwen:// (OAuth popups sometimes use this)
+  // Handle popup windows - keep auth IN-APP like Windows app does
   mainWindow.webContents.setWindowOpenHandler((details) => {
+    console.log("[POPUP] setWindowOpenHandler:", details.url);
+    console.log("[POPUP] features:", details.features);
+    
+    // If it's a qwen:// deep link, handle it directly
     if (details.url.startsWith("qwen://")) {
-      console.log(
-        "[Window] Caught qwen:// from setWindowOpenHandler:",
-        details.url,
-      );
+      console.log("[POPUP] ✅ Caught qwen:// from popup:", details.url);
       deps.onDeepLink(details.url);
       return { action: "deny" };
     }
-    // Allow external links to open in system browser
+
+    // For OAuth/auth URLs, open in an in-app popup (like Windows app)
+    const isAuthUrl =
+      details.url.includes("login") ||
+      details.url.includes("auth") ||
+      details.url.includes("oauth") ||
+      details.url.includes("account") ||
+      details.url.includes("passport") ||
+      details.url.includes("aliyun") ||
+      details.url.includes("taobao") ||
+      details.url.includes("alibaba") ||
+      details.url.includes("github.com") ||
+      details.url.includes("google.com") ||
+      details.url.includes("accounts.google.com");
+
+    if (isAuthUrl) {
+      console.log("[POPUP] 🔐 Opening auth URL in-app popup:", details.url);
+      
+      const authWindow = new BrowserWindow({
+        width: 500,
+        height: 600,
+        title: "Sign in to Qwen",
+        parent: mainWindow,
+        modal: false,
+        webPreferences: {
+          // Use SAME session as main window - CRITICAL for cookie sharing
+          partition: "",
+        },
+      });
+
+      authWindow.loadURL(details.url);
+      setupAuthWindowHandlers(authWindow, mainWindow, deps);
+
+      return { action: "deny" };
+    }
+
+    // For truly external links (non-auth), open in system browser
+    console.log("[POPUP] ❌ Opening external link in system browser:", details.url);
     shell.openExternal(details.url);
     return { action: "deny" };
   });
@@ -286,34 +302,35 @@ export function createWindow(deps: WindowManagerDeps): BrowserWindow {
     }
   });
 
-  // Handle popup windows - keep auth flows in-app, open other links externally
+  // Handle ALL popup windows for debugging
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    const url = details.url;
+    console.log("[POPUP] setWindowOpenHandler:", details.url);
+    console.log("[POPUP] features:", details.features);
     
     // If it's a qwen:// deep link, handle it directly
-    if (url.startsWith("qwen://")) {
-      console.log("[Window] Caught qwen:// from setWindowOpenHandler:", url);
-      deps.onDeepLink(url);
+    if (details.url.startsWith("qwen://")) {
+      console.log("[POPUP] ✅ Caught qwen:// from popup:", details.url);
+      deps.onDeepLink(details.url);
       return { action: "deny" };
     }
 
-    // Check if it's an auth-related URL or has qwen callback
+    // Log auth-related URLs
     const isAuthUrl =
-      url.includes("login") ||
-      url.includes("auth") ||
-      url.includes("oauth") ||
-      url.includes("account") ||
-      url.includes("passport") ||
-      url.includes("aliyun") ||
-      url.includes("taobao") ||
-      url.includes("alibaba") ||
-      url.includes("qwen://") ||
-      url.includes("callback=qwen");
+      details.url.includes("login") ||
+      details.url.includes("auth") ||
+      details.url.includes("oauth") ||
+      details.url.includes("account") ||
+      details.url.includes("passport") ||
+      details.url.includes("aliyun") ||
+      details.url.includes("taobao") ||
+      details.url.includes("alibaba") ||
+      details.url.includes("qwen://") ||
+      details.url.includes("callback=qwen") ||
+      details.url.includes("github.com") ||
+      details.url.includes("google.com");
 
-    // For auth URLs, open in an in-app window using the SAME session
-    // This ensures cookies are shared between auth window and main window
     if (isAuthUrl) {
-      console.log("[Window] Opening auth URL in-app:", url);
+      console.log("[POPUP] 🔐 Auth URL detected, opening in-app popup:", details.url);
       
       const authWindow = new BrowserWindow({
         width: 500,
@@ -322,19 +339,18 @@ export function createWindow(deps: WindowManagerDeps): BrowserWindow {
         parent: mainWindow,
         modal: false,
         webPreferences: {
-          // Use SAME session as main window - this is KEY for cookie sharing
-          partition: "",
+          partition: "", // Same session as main window
         },
       });
 
-      authWindow.loadURL(url);
+      authWindow.loadURL(details.url);
       setupAuthWindowHandlers(authWindow, mainWindow, deps);
 
       return { action: "deny" };
     }
 
-    // For all other external links, open in system browser
-    shell.openExternal(url);
+    console.log("[POPUP] ❌ Opening external link in system browser:", details.url);
+    shell.openExternal(details.url);
     return { action: "deny" };
   });
 
