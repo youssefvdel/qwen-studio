@@ -111,23 +111,29 @@ Yes, but some Wayland compositors need `--enable-features=UseOzonePlatform --ozo
 Built with Electron 34 + TypeScript, mirroring the official Qwen Studio app:
 
 ```mermaid
-flowchart TD
-    A[Main Process<br/>Electron] -->|Load URL| B[Renderer Process<br/>WebView]
-    B -->|IPC| C[Preload Script<br/>Context Bridge]
-    C -->|Invoke| A
-    A -->|Manage| D[MCP Proxy<br/>Server Management]
-    
-    subgraph External["External Services"]
-        E[chat.qwen.ai<br/>Qwen Cloud]
-        F[OAuth Provider<br/>GitHub/Google/Alibaba]
-        G[MCP Servers<br/>Filesystem/Browser/DB]
+graph TB
+    subgraph QwenStudio["Qwen Studio Application"]
+        Main[Main Process<br/>Electron]
+        Render[Renderer Process<br/>WebView]
+        Preload[Preload Script<br/>Context Bridge]
+        MCP[MCP Proxy<br/>Server Management]
     end
     
-    B -->|HTTPS| E
-    B -->|OAuth| F
-    F -->|qwen://token| A
-    A -->|set_cookie| B
-    D -->|stdio/SSE| G
+    subgraph External["External Services"]
+        Qwen[chat.qwen.ai<br/>Qwen Cloud]
+        OAuth[OAuth Provider<br/>GitHub/Google/Alibaba]
+        MCPS[MCP Servers<br/>Filesystem/Browser/DB]
+    end
+    
+    Main -->|Load URL| Render
+    Render -->|IPC| Preload
+    Preload -->|Invoke| Main
+    Main -->|Manage| MCP
+    MCP -->|stdio/SSE| MCPS
+    Render -->|HTTPS| Qwen
+    Render -->|OAuth| OAuth
+    OAuth -->|qwen://token| Main
+    Main -->|set_cookie| Render
 ```
 
 ### Module Structure
