@@ -110,30 +110,30 @@ Yes, but some Wayland compositors need `--enable-features=UseOzonePlatform --ozo
 
 Built with Electron 34 + TypeScript, mirroring the official Qwen Studio app:
 
-```
-┌─────────────────────────────────────────────┐
-│           Qwen Studio (Electron)           │
-│                                             │
-│  ┌─────────────┐    ┌──────────────────┐    │
-│  │ Main Process│◄──►│   MCP Proxy      │    │
-│  │             │    │  (McpProxy)      │    │
-│  │  - IPC      │    │  - stdio client  │    │
-│  │  - Tray     │    │  - SSE client    │    │
-│  │  - Menu     │    │  - HTTP stream   │    │
-│  └──────┬──────┘    └────────┬─────────     │
-│         │                    │              │
-│  ┌──────▼──────┐    ┌────────▼─────────┐    │
-│  │  Preload    │    │  Bundled Runtimes│    │
-│  │  (Bridge)   │    │  - bun           │    │
-│  │             │    │  - uv / uvx      │    │
-│  └──────┬──────┘    └──────────────────┘    │
-│         │                                   │
-│  ┌──────▼───────────────────────────────┐   │
-│  │         WebView                      │   │
-│  │   chat.qwen.ai (desktop detection)   │   │
-│  │   window.electronAPI exposed         │   │
-│  └──────────────────────────────────────┘   │
-└─────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph "Qwen Studio Application"
+        Main[Main Process<br/>Electron]
+        Render[Renderer Process<br/>WebView]
+        Preload[Preload Script<br/>Context Bridge]
+        MCP[MCP Proxy<br/>Server Management]
+    end
+    
+    subgraph "External Services"
+        Qwen[chat.qwen.ai<br/>Qwen Cloud]
+        OAuth[OAuth Provider<br/>GitHub/Google/Alibaba]
+        MCPS[MCP Servers<br/>Filesystem/Browser/DB]
+    end
+    
+    Main -->|Load URL| Render
+    Render -->|IPC| Preload
+    Preload -->|Invoke| Main
+    Main -->|Manage| MCP
+    MCP -->|stdio/SSE| MCPS
+    Render -->|HTTPS| Qwen
+    Render -->|OAuth| OAuth
+    OAuth -->|qwen://token| Main
+    Main -->|set_cookie| Render
 ```
 
 ### Module Structure
@@ -150,6 +150,30 @@ Built with Electron 34 + TypeScript, mirroring the official Qwen Studio app:
 | `src/mcp/proxy.ts`           | Multi-server MCP connection management          |
 | `src/mcp/server-client.ts`   | Single MCP server client (stdio/SSE/HTTP)       |
 | `src/preload/index.ts`       | contextBridge → window.electronAPI              |
+
+### Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant WebView
+    participant OAuth
+    participant Main
+    participant Renderer
+    
+    User->>WebView: Click Login
+    WebView->>OAuth: Open OAuth Popup
+    User->>OAuth: Authenticate
+    OAuth->>Main: Redirect qwen://open?token=xxx
+    Main->>Main: validateProtocol()
+    Main->>Main: Extract token
+    Main->>Renderer: sendEvent('set_cookie', token)
+    Renderer->>WebView: Inject cookies
+    Renderer->>WebView: Navigate to chat.qwen.ai
+    WebView->>Qwen: Request with auth cookie
+    Qwen->>WebView: Authenticated response
+    WebView->>User: Logged in UI
+```
 
 ---
 
