@@ -1,13 +1,13 @@
 {
-  "name": "qwen-desktop-linux",
+  "name": "qwen-studio",
   "version": "2.0.0",
-  "description": "Open-source Qwen AI (Tongyi Qianwen) desktop client for Linux. Full MCP support, system tray, bundled runtimes. Alternative to official Windows/Mac-only Qwen Desktop app.",
+  "description": "Open-source Qwen AI (Tongyi Qianwen) desktop client for Linux. Full MCP support, system tray, bundled runtimes. Alternative to official Windows/Mac-only Qwen Studio app.",
   "main": "./out/main/index.js",
   "author": "youssefvdel <youssefvdel@gmail.com>",
   "homepage": "https://chat.qwen.ai/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/youssefvdel/qwen-desktop-linux.git"
+    "url": "https://github.com/youssefvdel/qwen-studio.git"
   },
   "scripts": {
     "start": "npm run copy-assets && tsc && electron-forge start",
@@ -62,7 +62,7 @@
   "keywords": [
     "qwen",
     "qwen-ai",
-    "qwen-desktop",
+    "qwen-studio",
     "linux",
     "ubuntu",
     "fedora",

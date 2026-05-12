@@ -207,6 +207,59 @@
       document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
     });
 
+    // Handle auth token from deep link (login callback)
+    window.electronAPI.on_event('auth_token', async (data) => {
+      console.log('[Renderer] Received auth token:', data?.token ? 'token present' : 'no token');
+      
+      if (data?.token) {
+        const webview = document.querySelector('webview');
+        if (webview) {
+          console.log('[Renderer] Setting auth cookie in webview...');
+          
+          // Insert the auth token as a cookie in the webview
+          const setCookieScript = `
+            (function() {
+              try {
+                const token = '${data.token}';
+                
+                // Set cookies for all possible domains
+                const domains = ['.qwen.ai', 'chat.qwen.ai', 'qwen.ai', '.aliyun.com', 'aliyun.com'];
+                for (const domain of domains) {
+                  document.cookie = 'token=' + token + '; domain=' + domain + '; path=/; secure; samesite=lax';
+                  document.cookie = 'auth_token=' + token + '; domain=' + domain + '; path=/; secure; samesite=lax';
+                  document.cookie = 'accessToken=' + token + '; domain=' + domain + '; path=/; secure; samesite=lax';
+                }
+                console.log('[Inject] Auth cookies set for all domains');
+                
+                // Also try localStorage as backup
+                localStorage.setItem('qwen_auth_token', token);
+                localStorage.setItem('token', token);
+                localStorage.setItem('accessToken', token);
+                console.log('[Inject] LocalStorage set');
+                
+                // Return success
+                return 'cookies_set';
+              } catch (e) {
+                console.error('[Inject] Failed to set auth:', e);
+                return 'error: ' + e.message;
+              }
+            })();
+          `;
+          
+          try {
+            const result = await webview.executeJavaScript(setCookieScript);
+            console.log('[Renderer] Cookie injection result:', result);
+            
+            // Navigate to chat.qwen.ai to trigger session recognition
+            console.log('[Renderer] Navigating to chat.qwen.ai...');
+            webview.src = 'https://chat.qwen.ai';
+          } catch (err) {
+            console.error('[Renderer] Failed to inject cookie:', err);
+          }
+        }
+      }
+    });
+
     // Initialize
     createWebview().catch((error) => {
       console.error('[Renderer] Failed to create webview:', error);

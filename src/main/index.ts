@@ -1,5 +1,5 @@
 /**
- * Qwen Desktop for Linux — Main Entry Point
+ * Qwen Studio for Linux — Main Entry Point
  *
  * This is the Electron app bootstrap. It:
  * - Configures app flags (GPU, sandbox, etc.)
@@ -32,7 +32,6 @@ import {
 import { setupAutoUpdater } from "./updater.js";
 import { createWindow } from "./window-manager.js";
 import { registerIpcHandlers, MCP_CONFIG_KEY } from "./ipc-handlers.js";
-import { qwenProxy } from "./qwen-proxy.js";
 import { logger } from "./logger.js";
 import {
   configureApp,
@@ -75,6 +74,18 @@ const mcpServer = new McpProxy();
 
 // === Window State ===
 let mainWindow: BrowserWindow | null = null;
+
+/** Queue for deep links received before window is ready */
+export const deepLinkQueue: string[] = [];
+
+/** Process queued deep links */
+export function processDeepLinkQueue() {
+  while (deepLinkQueue.length > 0 && mainWindow) {
+    const url = deepLinkQueue.shift()!;
+    console.log("[App] Processing queued deep link:", url);
+    handleDeepLink(url, mainWindow);
+  }
+}
 
 /** Getter for mainWindow — used by IPC handlers and skills module */
 const getMainWindow = (): BrowserWindow | null => mainWindow;
@@ -289,8 +300,16 @@ async function setupMenu(): Promise<void> {
 // Configure app flags BEFORE ready (GPU, sandbox, platform hints)
 configureApp();
 
+// Request single instance lock - prevent multiple app instances
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  console.log("[App] Another instance is running, quitting...");
+  app.quit();
+  process.exit(0);
+}
+
 app.whenReady().then(async () => {
-  logger.info('🚀 Starting Qwen Desktop for Linux', { platform: getPlatformName(), version: APP_VERSION });
+  logger.info('🚀 Starting Qwen Studio for Linux', { platform: getPlatformName(), version: APP_VERSION });
 
   try {
     // Make bundled runtimes executable (dev mode only)
@@ -300,6 +319,10 @@ app.whenReady().then(async () => {
     // Setup protocol handler (qwen:// deep links)
     setupProtocolHandler({
       onDeepLink: (url) => handleDeepLink(url, mainWindow),
+      enqueueDeepLink: (url) => {
+        console.log("[App] Enqueuing deep link:", url);
+        deepLinkQueue.push(url);
+      },
       onCreateWindow: () => {
         if (mainWindow) {
           if (mainWindow.isMinimized()) mainWindow.restore();
@@ -342,82 +365,36 @@ app.whenReady().then(async () => {
       onDeepLink: (url) => handleDeepLink(url, mainWindow),
     });
 
-    // === Start Qwen Web API Proxy (Direct HTTP Bridge) ===
-    // Exposes OpenAI-compatible endpoint at http://localhost:11435
-    logger.info('🔗 Initializing QwenProxy...');
-    qwenProxy.setWindow(mainWindow);
-    qwenProxy.start();
-    // ======================================================
-
-    // === Force DevTools Open (for API discovery) ===
-    // Auto-open detached DevTools so we can inspect network traffic
-    setTimeout(() => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.openDevTools({ mode: 'detach' });
-        logger.info('🔍 DevTools auto-opened in detached mode for API inspection');
-      }
-    }, 3000);
-    // =============================================
-
-    // === Aggressive Network Interceptor for API Discovery ===
-    const ses = mainWindow.webContents.session;
-
-    // Log ALL requests to chat.qwen.ai (XHR/fetch only)
-    // Note: Electron uses 'xhr' for both XHR and fetch requests
-    ses.webRequest.onBeforeRequest({ urls: ['*://chat.qwen.ai/*'] }, (details, callback) => {
-      if (details.resourceType === 'xhr') {
-        logger.info('🌐 [API-TRACE] ' + details.method + ' ' + details.url, {
-          resourceType: details.resourceType,
-          requestId: details.id,
-          timestamp: new Date().toISOString()
-        });
-        // Log POST body if present
-        if (details.uploadData) {
-          const body = details.uploadData.map((d: any) =>
-            d.bytes ? Buffer.from(d.bytes).toString('utf8') : d.text
-          ).join('');
-          if (body) logger.debug('📦 [API-BODY] ' + body.substring(0, 500));
-        }
-      }
-      callback({});
-    });
-
-    // Log headers for API-like requests
-    ses.webRequest.onSendHeaders({ urls: ['*://chat.qwen.ai/*'] }, (details) => {
-      if (details.resourceType === 'xhr' &&
-        (details.url.includes('/api') || details.url.includes('/gpts') || details.url.includes('/chat'))) {
-        logger.info('🔑 [API-HEADERS] ' + details.url, {
-          method: details.method,
-          headers: Object.fromEntries(
-            Object.entries(details.requestHeaders).filter(([k]) =>
-              !['cookie', 'authorization'].includes(k.toLowerCase())
-            )
-          )
-        });
-      }
-    });
-
-    // Log responses
-    ses.webRequest.onCompleted({ urls: ['*://chat.qwen.ai/*'] }, (details) => {
-      if (details.resourceType === 'xhr' &&
-        (details.url.includes('/api') || details.url.includes('/gpts') || details.url.includes('/chat'))) {
-        logger.info('✅ [API-RESPONSE] ' + details.statusCode + ' ' + details.url, {
-          status: details.statusCode,
-          method: details.method,
-          size: details.responseHeaders?.['content-length']?.[0] || 'unknown'
-        });
-        // If error status, log more
-        if (details.statusCode >= 400) {
-          logger.warn('❌ [API-ERROR] ' + details.url + ' -> ' + details.statusCode);
-        }
-      }
-    });
-    // =============================================
-
     // Build menu after window creation (so skills menu can populate)
     await setupMenu();
 
     console.log("[App] ✅ Window created successfully");
+    
+    // Process any queued deep links
+    processDeepLinkQueue();
+
+    // Linux: Handle second instance (prevent multiple windows from qwen:// links)
+    app.on("second-instance", (_event, commandLine) => {
+      console.log("[App] Second instance detected, focusing existing window");
+      
+      // Check for qwen:// URL in command line
+      const url = commandLine.find((arg) => arg.startsWith("qwen://"));
+      if (url) {
+        console.log("[App] Deep link in second instance:", url);
+        // Queue it if window not ready, or handle immediately
+        if (mainWindow) {
+          handleDeepLink(url, mainWindow);
+        } else {
+          deepLinkQueue.push(url);
+        }
+      }
+      
+      // Focus existing window
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
+      }
+    });
 
     // macOS: re-create window on dock click
     app.on("activate", () => {

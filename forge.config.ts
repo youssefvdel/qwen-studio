@@ -8,11 +8,19 @@ import path from "path";
 
 const config: ForgeConfig = {
   packagerConfig: {
-    name: "Qwen",
-    executableName: "qwen",
+    name: "Qwen Studio",
+    executableName: "qwen-studio",
     icon: path.join(__dirname, "resources/icon"),
-    asar: true,
+    asar: false,
     out: "dist/forge-out",
+    ignore: (fileName) => {
+      return !(
+        fileName.startsWith('/out') ||
+        fileName.startsWith('/resources') ||
+        fileName.startsWith('/node_modules') ||
+        fileName.startsWith('/package.json')
+      );
+    },
   },
   rebuildConfig: {},
   makers: [
@@ -20,8 +28,8 @@ const config: ForgeConfig = {
     new MakerDeb(
       {
         options: {
-          name: "qwen-desktop",
-          productName: "Qwen Desktop",
+          name: "qwen-studio",
+          productName: "Qwen Studio",
           genericName: "Qwen AI Chat",
           categories: ["Utility", "Development"],
           icon: path.join(__dirname, "resources/icon.png"),
@@ -39,8 +47,8 @@ const config: ForgeConfig = {
     new MakerRpm(
       {
         options: {
-          name: "qwen-desktop",
-          productName: "Qwen Desktop",
+          name: "qwen-studio",
+          productName: "Qwen Studio",
           genericName: "Qwen AI Chat",
           categories: ["Utility", "Development"],
           icon: path.join(__dirname, "resources/icon.png"),

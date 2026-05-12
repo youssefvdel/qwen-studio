@@ -1,7 +1,7 @@
 /**
  * Skills Manager — system prompt injection for chat.qwen.ai
  *
- * Skills are .md/.txt files stored in ~/.config/qwen-desktop-linux/skills/.
+ * Skills are .md/.txt files stored in ~/.config/qwen-studio/skills/.
  * Each skill contains a system prompt that gets injected into the chat input
  * when selected from the Skills menu.
  *

@@ -1,13 +1,13 @@
-# Qwen Desktop for Linux
+# Qwen Studio for Linux
 
-[![Version](https://img.shields.io/github/v/release/youssefvdel/qwen-desktop-linux?label=version&color=blue)](https://github.com/youssefvdel/qwen-desktop-linux/releases)
+[![Version](https://img.shields.io/github/v/release/youssefvdel/qwen-studio-linux?label=version&color=blue)](https://github.com/youssefvdel/qwen-studio-linux/releases)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Linux-orange.svg)](https://github.com/youssefvdel/qwen-desktop-linux/releases)
-[![Stars](https://img.shields.io/github/stars/youssefvdel/qwen-desktop-linux?style=social)](https://github.com/youssefvdel/qwen-desktop-linux/stargazers)
+[![Platform](https://img.shields.io/badge/platform-Linux-orange.svg)](https://github.com/youssefvdel/qwen-studio-linux/releases)
+[![Stars](https://img.shields.io/github/stars/youssefvdel/qwen-studio-linux?style=social)](https://github.com/youssefvdel/qwen-studio-linux/stargazers)
 
 Open-source Qwen AI (Tongyi Qianwen) desktop client for Linux. Run Alibaba's Qwen models natively on Ubuntu, Fedora, Arch, and all Linux distributions with full MCP (Model Context Protocol) support.
 
-The official Qwen Desktop app only supports Windows and macOS. This project brings the same desktop experience to Linux.
+The official Qwen Studio app only supports Windows and macOS. This project brings the same desktop experience to Linux.
 
 ---
 
@@ -16,7 +16,7 @@ The official Qwen Desktop app only supports Windows and macOS. This project brin
 ### Option 1: AppImage (recommended — works on every distro)
 
 ```bash
-wget https://github.com/youssefvdel/qwen-desktop-linux/releases/latest/download/Qwen-1.1.2-x86_64.AppImage
+wget https://github.com/youssefvdel/qwen-studio-linux/releases/latest/download/Qwen-1.1.2-x86_64.AppImage
 chmod +x Qwen-1.1.2-x86_64.AppImage
 ./Qwen-1.1.2-x86_64.AppImage
 ```
@@ -24,19 +24,19 @@ chmod +x Qwen-1.1.2-x86_64.AppImage
 ### Option 2: Debian/Ubuntu
 
 ```bash
-wget https://github.com/youssefvdel/qwen-desktop-linux/releases/latest/download/qwen-desktop_1.1.2_amd64.deb
-sudo apt install ./qwen-desktop_1.1.2_amd64.deb
-qwen-desktop
+wget https://github.com/youssefvdel/qwen-studio-linux/releases/latest/download/qwen-studio_1.1.2_amd64.deb
+sudo apt install ./qwen-studio_1.1.2_amd64.deb
+qwen-studio
 ```
 
 ### Option 3: Fedora/RHEL
 
 ```bash
-sudo dnf install https://github.com/youssefvdel/qwen-desktop-linux/releases/latest/download/qwen-desktop-1.1.2.x86_64.rpm
-qwen-desktop
+sudo dnf install https://github.com/youssefvdel/qwen-studio-linux/releases/latest/download/qwen-studio-1.1.2.x86_64.rpm
+qwen-studio
 ```
 
-[All Downloads](https://github.com/youssefvdel/qwen-desktop-linux/releases)
+[All Downloads](https://github.com/youssefvdel/qwen-studio-linux/releases)
 
 ---
 
@@ -73,7 +73,7 @@ _MCP configuration panel_
 
 Qwen (通义千问, Tongyi Qianwen) is a family of large language models developed by Alibaba Cloud's Tongyi Lab. It includes Qwen-Max, Qwen-Plus, Qwen3-6Plus, and Qwen3-235B-A22B.
 
-### Is this the official Qwen Desktop app?
+### Is this the official Qwen Studio app?
 
 No. The official app only supports Windows and macOS. This is a community-built, open-source desktop wrapper for Linux, reverse-engineered from the official app's protocol.
 
@@ -95,7 +95,7 @@ Yes, but some Wayland compositors need `--enable-features=UseOzonePlatform --ozo
 
 ### Browser vs Desktop — why use this?
 
-| Browser              | Qwen Desktop for Linux               |
+| Browser              | Qwen Studio for Linux               |
 | -------------------- | ------------------------------------ |
 | No system tray       | System tray integration              |
 | No MCP support       | Full MCP (files, browser, databases) |
@@ -108,11 +108,11 @@ Yes, but some Wayland compositors need `--enable-features=UseOzonePlatform --ozo
 
 ## Architecture
 
-Built with Electron 34 + TypeScript, mirroring the official Qwen Desktop app:
+Built with Electron 34 + TypeScript, mirroring the official Qwen Studio app:
 
 ```
 ┌─────────────────────────────────────────────┐
-│           Qwen Desktop (Electron)           │
+│           Qwen Studio (Electron)           │
 │                                             │
 │  ┌─────────────┐    ┌──────────────────┐    │
 │  │ Main Process│◄──►│   MCP Proxy      │    │
@@ -164,8 +164,8 @@ Built with Electron 34 + TypeScript, mirroring the official Qwen Desktop app:
 ### Install & Run
 
 ```bash
-git clone https://github.com/youssefvdel/qwen-desktop-linux.git
-cd qwen-desktop-linux
+git clone https://github.com/youssefvdel/qwen-studio-linux.git
+cd qwen-studio-linux
 npm install
 npm start
 ```
@@ -187,7 +187,7 @@ npm run make:rpm    # Fedora/RHEL
 ### Project Structure
 
 ```
-qwen-desktop-linux/
+qwen-studio-linux/
 ├── src/
 │   ├── main/           # Electron main process
 │   │   ├── index.ts
@@ -261,7 +261,7 @@ The app automatically replaces `npx`, `bun`, and `uvx` commands with bundled run
 
 ## Skills System
 
-Create system prompts as `.md` files in `~/.config/qwen-desktop-linux/skills/`. Inject into chat via the Skills menu.
+Create system prompts as `.md` files in `~/.config/qwen-studio-linux/skills/`. Inject into chat via the Skills menu.
 
 ### Example
 
@@ -343,11 +343,11 @@ MIT License. See [LICENSE](LICENSE).
 
 ## Acknowledgments
 
-- Based on reverse engineering of the official Qwen Desktop app (Windows/macOS)
+- Based on reverse engineering of the official Qwen Studio app (Windows/macOS)
 - Uses [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk) by Anthropic
 - Bundled runtimes: [Bun](https://bun.sh/) + [uv](https://github.com/astral-sh/uv)
 - Built with [Electron](https://www.electronjs.org/)
 
 ---
 
-Keywords: Qwen AI Linux, Qwen Desktop Linux, Tongyi Qianwen Linux, open source Qwen, free Qwen AI desktop, Alibaba Qwen Linux client, Qwen MCP Linux, Qwen3 Linux app, Qwen chat desktop Linux, Ubuntu Qwen AI, Fedora Qwen, Arch Linux Qwen, Electron Qwen app
+Keywords: Qwen AI Linux, Qwen Studio Linux, Tongyi Qianwen Linux, open source Qwen, free Qwen AI desktop, Alibaba Qwen Linux client, Qwen MCP Linux, Qwen3 Linux app, Qwen chat desktop Linux, Ubuntu Qwen AI, Fedora Qwen, Arch Linux Qwen, Electron Qwen app

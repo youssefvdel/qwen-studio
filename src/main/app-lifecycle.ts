@@ -63,7 +63,7 @@ function registerAppImageProtocolHandler(): void {
       const appimageDesktop = files.find(
         (f) =>
           f.toLowerCase().includes("qwen") ||
-          f.toLowerCase().includes("qwen-desktop"),
+          f.toLowerCase().includes("qwen-studio"),
       );
 
       if (!appimageDesktop) {
@@ -174,11 +174,23 @@ export function handleDeepLink(
   if (urlObj.pathname === "/open") {
     const token = urlObj.searchParams.get("token");
     if (token) {
-      console.log("[DeepLink] Auth token received");
-      mainWindow?.webContents.send("event_from_main", {
-        type: "auth_token",
-        payload: { token },
-      });
+      console.log("[DeepLink] Auth token received, length:", token.length);
+      
+      // Focus existing window
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
+        
+        // Send token to renderer
+        mainWindow.webContents.send("event_from_main", {
+          type: "auth_token",
+          payload: { token },
+        });
+        
+        console.log("[DeepLink] Token sent to renderer");
+      } else {
+        console.log("[DeepLink] No window available, token queued");
+      }
     }
   }
 }
@@ -189,6 +201,7 @@ export function handleDeepLink(
 export function setupProtocolHandler(handlers: {
   onDeepLink: (url: string) => void;
   onCreateWindow: () => void;
+  enqueueDeepLink?: (url: string) => void;
 }): void {
   // FIRST: Register .desktop file and MIME handler for AppImage
   registerAppImageProtocolHandler();
@@ -222,6 +235,7 @@ export function setupProtocolHandler(handlers: {
   const qwenUrl = process.argv.find((arg) => arg.startsWith("qwen://"));
   if (qwenUrl) {
     console.log("[Protocol] Deep link found in startup args:", qwenUrl);
-    handlers.onDeepLink(qwenUrl);
+    // Queue it - will be processed after window is created
+    handlers.enqueueDeepLink?.(qwenUrl);
   }
 }
