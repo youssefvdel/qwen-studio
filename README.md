@@ -111,15 +111,17 @@ Yes, but some Wayland compositors need `--enable-features=UseOzonePlatform --ozo
 Built with Electron 34 + TypeScript, mirroring the official Qwen Studio app:
 
 ```mermaid
-graph TB
-    subgraph "Qwen Studio Application"
+graph TD
+    subgraph QwenStudio["Qwen Studio Application"]
+        direction TB
         Main[Main Process<br/>Electron]
         Render[Renderer Process<br/>WebView]
         Preload[Preload Script<br/>Context Bridge]
         MCP[MCP Proxy<br/>Server Management]
     end
     
-    subgraph "External Services"
+    subgraph External["External Services"]
+        direction TB
         Qwen[chat.qwen.ai<br/>Qwen Cloud]
         OAuth[OAuth Provider<br/>GitHub/Google/Alibaba]
         MCPS[MCP Servers<br/>Filesystem/Browser/DB]
