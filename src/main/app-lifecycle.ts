@@ -213,12 +213,16 @@ export function handleDeepLink(
 function validateDeepLink(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return (
+    console.log("[DeepLink] Parse success - protocol:", parsed.protocol, "hostname:", parsed.hostname, "has token:", !!parsed.searchParams.get("token"));
+    const isValid = (
       parsed.protocol === "qwen:" &&
       ["open"].includes(parsed.hostname) &&
       (parsed.hostname !== "open" || !!parsed.searchParams.get("token"))
     );
-  } catch {
+    console.log("[DeepLink] Validation result:", isValid);
+    return isValid;
+  } catch (e) {
+    console.log("[DeepLink] Parse failed:", e);
     return false;
   }
 }
