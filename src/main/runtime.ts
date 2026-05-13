@@ -35,16 +35,18 @@ export function getRuntimePaths(): RuntimePaths {
 
   if (platform === "linux") {
     const archDir = arch === "arm64" ? "linux-arm64" : "linux-x64";
+    const bunDir = arch === "arm64" ? "bun-linux-arm64" : "bun-linux-x64";
+    const uvDir = arch === "arm64" ? "uv-aarch64-unknown-linux-musl" : "uv-x86_64-unknown-linux-musl";
     return {
       bun: app.isPackaged
-        ? path.join(resourcesPath, "resources", "bun", archDir, "bun")
-        : path.join(resourcesPath, "bun", archDir, "bun"),
+        ? path.join(resourcesPath, "resources", "bun", archDir, bunDir, "bun")
+        : path.join(resourcesPath, "bun", archDir, bunDir, "bun"),
       uv: app.isPackaged
-        ? path.join(resourcesPath, "resources", "uv", archDir, "uv")
-        : path.join(resourcesPath, "uv", archDir, "uv"),
+        ? path.join(resourcesPath, "resources", "uv", archDir, uvDir, "uv")
+        : path.join(resourcesPath, "uv", archDir, uvDir, "uv"),
       uvx: app.isPackaged
-        ? path.join(resourcesPath, "resources", "uv", archDir, "uvx")
-        : path.join(resourcesPath, "uv", archDir, "uvx"),
+        ? path.join(resourcesPath, "resources", "uv", archDir, uvDir, "uvx")
+        : path.join(resourcesPath, "uv", archDir, uvDir, "uvx"),
     };
   }
 
