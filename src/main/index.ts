@@ -48,6 +48,7 @@ import {
   setQuitting,
 } from "./app-lifecycle.js";
 import type { McpConfig } from "../shared/types.js";
+import { getQwenCorePath, getDefaultQwenCoreConfig } from "./mcp-config.js";
 
 // === Constants ===
 const APP_VERSION = app.getVersion();
@@ -159,15 +160,6 @@ function getDefaultMcpConfig(): McpConfig {
     "qwen-core": getDefaultQwenCoreConfig(),
     // Note: All other tools now integrated into qwen-core v2.0+
     // No need for separate filesystem, fetch, or desktop-commander servers
-  };
-}
-      command: bunPath,
-      args: ["x", "-y", "@wonderwhy-er/desktop-commander"],
-      env: {
-        PUPPETEER_SKIP_DOWNLOAD: "true",
-        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "true",
-      },
-    },
   };
 }
 

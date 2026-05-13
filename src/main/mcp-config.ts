@@ -26,7 +26,7 @@ import type { McpConfig, McpServerConfig } from "../shared/types.js";
 export function getQwenCorePath(): string {
   if (app.isPackaged) {
     // In production, qwen-core is bundled at resources/qwen-core/
-    return path.join(process.resourcesPath, "resources", "qwen-core", "src", "index.ts");
+    return path.join(process.resourcesPath, "qwen-core", "src", "index.ts");
   }
   // In development, use the local qwen-core folder
   // Option 1: qwen-core is a subfolder in the project root
@@ -50,10 +50,10 @@ export function getQwenCorePath(): string {
  */
 export function getDefaultQwenCoreConfig(): McpServerConfig {
   return {
-    command: "bun", // Will be replaced with bundled bun path by adaptConfig
+    command: "bun", // Will be replaced with bundled bun path by adaptConfig()
     args: ["tsx", getQwenCorePath()],
     cwd: app.isPackaged 
-      ? path.join(process.resourcesPath, "resources", "qwen-core")
+      ? path.join(process.resourcesPath, "qwen-core")
       : path.join(app.getAppPath(), "qwen-core"),
   };
 }
@@ -81,7 +81,7 @@ export function adaptConfig(configs: McpConfig): McpConfig {
       }
       // Update cwd and path for packaged app
       if (app.isPackaged) {
-        config.cwd = path.join(process.resourcesPath, "resources", "qwen-core");
+        config.cwd = path.join(process.resourcesPath, "qwen-core");
         // Update the path argument to use bundled location
         const corePath = getQwenCorePath();
         if (config.args) {

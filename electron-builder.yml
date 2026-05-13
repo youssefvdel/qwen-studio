@@ -21,7 +21,6 @@ files:
   - "out/**/*"
   - "package.json"
   - "node_modules/**/*"
-  - "qwen-core/**/*"
   - "!node_modules/@electron-toolkit/**/*"
   - "!node_modules/@types/**/*"
   - "!node_modules/electron/**/*"
@@ -31,11 +30,6 @@ files:
   - "!forge.config.ts"
   - "!scripts/**/*"
   - "!flatpak/**/*"
-  - "!qwen-core/*.md"
-  - "!qwen-core/.git/**/*"
-  - "!qwen-core/node_modules/**/*"
-  - "!qwen-core/dist/**/*"
-  - "!qwen-core/out/**/*"
   - "!.github/**/*"
   - "!workspace.termcanvas"
   - "!test-electron.js"
@@ -53,6 +47,19 @@ extraResources:
     to: "resources/uv"
   - from: "resources/icon.png"
     to: "icon.png"
+  - from: "qwen-core"
+    to: "qwen-core"
+    filter: [
+      "src/**/*",
+      "package.json",
+      "skills/**/*",
+      ".qwenrules",
+      "!*.md",
+      "!.git/**/*",
+      "!node_modules/**/*",
+      "!dist/**/*",
+      "!out/**/*"
+    ]
 
 directories:
   output: "dist"

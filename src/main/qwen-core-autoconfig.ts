@@ -31,7 +31,7 @@ const QWEN_CORE_LOCATIONS = [
   
   // Global installations
   path.join(app.getPath("home"), ".qwen-core"),
-  path.join(app.getPath("data"), "qwen-core"),
+  path.join(app.getPath("appData"), "qwen-core"),
   
   // System-wide
   "/opt/qwen-core",
