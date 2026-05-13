@@ -147,31 +147,20 @@ async function loadMcpConfig(): Promise<McpConfig> {
 /**
  * Default MCP server configuration for first-time users.
  * Uses standard MCP format: { mcpServers: {...} }
- * Qwen-Core is the primary MCP server with 21 tools.
+ * qwen-core is the primary MCP server with 40 tools including:
+ * - Filesystem operations (read, write, list, search, delete)
+ * - Web access (fetch, search)
+ * - Git operations (status, diff, commit, add, log)
+ * - System commands (execute, processes)
+ * - Time operations, PDF reading, and more
  */
 function getDefaultMcpConfig(): McpConfig {
-  const bunPath = getBunPath();
-  const homeDir = require("os").homedir();
-  const qwenCorePath = require("path").join(__dirname, "../../qwen-core/src/index.ts");
-  
   return {
-    "qwen-core": {
-      command: bunPath,
-      args: ["tsx", qwenCorePath],
-      env: {
-        MCP_ALLOWED_DIRS: `${homeDir},/tmp`,
-        MCP_TIMEOUT: "60000",
-      },
-    },
-    "fetch": {
-      command: bunPath,
-      args: ["x", "-y", "@modelcontextprotocol/server-fetch"],
-    },
-    "filesystem": {
-      command: bunPath,
-      args: ["x", "-y", "@modelcontextprotocol/server-filesystem", homeDir],
-    },
-    "desktop-commander": {
+    "qwen-core": getDefaultQwenCoreConfig(),
+    // Note: All other tools now integrated into qwen-core v2.0+
+    // No need for separate filesystem, fetch, or desktop-commander servers
+  };
+}
       command: bunPath,
       args: ["x", "-y", "@wonderwhy-er/desktop-commander"],
       env: {
