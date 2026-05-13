@@ -1,5 +1,5 @@
 appId: com.qwen.studio.linux
-productName: "Qwen Studio"
+productName: "qwen-studio"
 copyright: Copyright © 2026 Qwen Community
 
 linux:
@@ -11,7 +11,7 @@ linux:
   icon: "resources/icon.png"
   artifactName: "${productName}-${version}-${arch}.${ext}"
   protocols:
-    - name: "Qwen Studio"
+    - name: "qwen-studio"
       schemes:
         - qwen
   mimeTypes:
