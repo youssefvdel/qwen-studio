@@ -32,14 +32,6 @@ import {
 import { setupAutoUpdater } from "./updater.js";
 import { createWindow } from "./window-manager.js";
 import { registerIpcHandlers, MCP_CONFIG_KEY } from "./ipc-handlers.js";
-import { logger } from "./logger.js";
-import {
-  configureApp,
-  setupProtocolHandler,
-  handleDeepLink,
-  isQuitting,
-  setQuitting,
-} from "./app-lifecycle.js";
 import {
   ensureSkillsDir,
   getAvailableSkills,
@@ -48,6 +40,7 @@ import {
   buildSkillsMenuTemplate,
 } from "./skills-manager.js";
 import type { McpConfig } from "../shared/types.js";
+import { getQwenCorePath, getDefaultQwenCoreConfig } from "./mcp-config.js";
 
 // === Constants ===
 const APP_VERSION = app.getVersion();
@@ -112,24 +105,31 @@ function getAppIcon(): Electron.NativeImage | undefined {
 
 /**
  * Load MCP config from electron-settings.
- * If no config exists, creates default MCP servers (Desktop-Commander, Fetch, Filesystem, Sequential-Thinking).
+ * Uses standard MCP format: { mcpServers: {...} }
+ * Always ensures qwen-core is present.
  */
 async function loadMcpConfig(): Promise<McpConfig> {
   try {
+    const defaults = getDefaultMcpConfig();
+    
     if (await settings.has(MCP_CONFIG_KEY)) {
       const config = await settings.get(MCP_CONFIG_KEY);
       const parsed = (config as unknown as McpConfig) || {};
+      
+      if (!parsed["qwen-core"]) {
+        console.log("[Config] qwen-core missing, adding...");
+        parsed["qwen-core"] = defaults["qwen-core"];
+        await settings.set(MCP_CONFIG_KEY, parsed as any);
+      }
+      
       if (Object.keys(parsed).length > 0) {
         return parsed;
       }
     }
-    console.log("[Config] No MCP config found, creating defaults...");
-    const defaults = getDefaultMcpConfig();
+    
+    console.log("[Config] No MCP config, creating defaults...");
     await settings.set(MCP_CONFIG_KEY, defaults as any);
-    console.log(
-      "[Config] ✅ Default MCP servers created:",
-      Object.keys(defaults),
-    );
+    console.log("[Config] MCP servers:", Object.keys(defaults));
     return defaults;
   } catch (error) {
     console.error("[Config] Failed to load MCP config:", error);
@@ -139,40 +139,26 @@ async function loadMcpConfig(): Promise<McpConfig> {
 
 /**
  * Default MCP server configuration for first-time users.
- * All servers use the bundled bun runtime.
+ * Uses standard MCP format: { mcpServers: {...} }
  * Qwen-Core is the primary MCP server with 21 tools.
  */
 function getDefaultMcpConfig(): McpConfig {
   const bunPath = getBunPath();
   const homeDir = require("os").homedir();
-  const qwenCorePath = require("path").join(__dirname, "../../qwen-core/src/index.ts");
   
   return {
-    // Qwen-Core is the primary MCP server (always enabled)
-    "Qwen-Core": {
-      command: bunPath,
-      args: ["tsx", qwenCorePath],
-      transportType: "stdio",
-      env: {
-        MCP_ALLOWED_DIRS: `${homeDir},/tmp`,
-        MCP_TIMEOUT: "60000",
-      },
-    },
-    // Additional MCP servers
-    Fetch: {
+    "qwen-core": getDefaultQwenCoreConfig(),
+    "fetch": {
       command: bunPath,
       args: ["x", "-y", "@modelcontextprotocol/server-fetch"],
-      transportType: "stdio",
     },
-    Filesystem: {
+    "filesystem": {
       command: bunPath,
       args: ["x", "-y", "@modelcontextprotocol/server-filesystem", homeDir],
-      transportType: "stdio",
     },
-    "Desktop-Commander": {
+    "desktop-commander": {
       command: bunPath,
       args: ["x", "-y", "@wonderwhy-er/desktop-commander"],
-      transportType: "stdio",
       env: {
         PUPPETEER_SKIP_DOWNLOAD: "true",
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "true",

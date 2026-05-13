@@ -9,13 +9,54 @@
  * - Replaces `uvx` → bundled `uvx` path
  * - Fixes macOS paths (/Users) to Linux home directory
  * - Sets PATH environment with bundled runtime directories
+ * - Handles qwen-core bundled path (dev vs production)
  */
 
 import path from "path";
 import os from "os";
 import { app } from "electron";
 import { getBunPath, getUvxPath } from "./runtime.js";
-import type { McpConfig } from "../shared/types.js";
+import type { McpConfig, McpServerConfig } from "../shared/types.js";
+
+/**
+ * Get the path to qwen-core's src/index.ts
+ * In development: uses the local qwen-core folder in the project
+ * In production: uses the bundled qwen-core inside resources
+ */
+export function getQwenCorePath(): string {
+  if (app.isPackaged) {
+    // In production, qwen-core is bundled at resources/qwen-core/
+    return path.join(process.resourcesPath, "resources", "qwen-core", "src", "index.ts");
+  }
+  // In development, use the local qwen-core folder
+  // Option 1: qwen-core is a subfolder in the project root
+  const localQwenCore = path.join(app.getAppPath(), "qwen-core", "src", "index.ts");
+  
+  // Check if local path exists, otherwise try relative to current working dir
+  try {
+    const fs = require("fs");
+    if (fs.existsSync(localQwenCore)) {
+      return localQwenCore;
+    }
+  } catch {}
+  
+  // Option 2: fallback to relative path from where app is run
+  return path.join(process.cwd(), "qwen-core", "src", "index.ts");
+}
+
+/**
+ * Get the default MCP config for qwen-core
+ * Returns a config that can be adapted by adaptConfig()
+ */
+export function getDefaultQwenCoreConfig(): McpServerConfig {
+  return {
+    command: "bun", // Will be replaced with bundled bun path by adaptConfig
+    args: ["tsx", getQwenCorePath()],
+    cwd: app.isPackaged 
+      ? path.join(process.resourcesPath, "resources", "qwen-core")
+      : path.join(app.getAppPath(), "qwen-core"),
+  };
+}
 
 /**
  * Adapt MCP config to use bundled runtimes
@@ -32,11 +73,22 @@ export function adaptConfig(configs: McpConfig): McpConfig {
     let cmd = config.command;
 
     // Qwen-Core uses bun with tsx - ensure it uses bundled bun
-    if (key === "Qwen-Core") {
+    if (key === "Qwen-Core" || key === "qwen-core") {
       cmd = correctBunPath;
       // Ensure tsx argument is present
       if (config.args && !config.args.includes("tsx")) {
         config.args.unshift("tsx");
+      }
+      // Update cwd and path for packaged app
+      if (app.isPackaged) {
+        config.cwd = path.join(process.resourcesPath, "resources", "qwen-core");
+        // Update the path argument to use bundled location
+        const corePath = getQwenCorePath();
+        if (config.args) {
+          config.args = config.args.map((arg: string) => 
+            arg.includes("qwen-core") ? corePath : arg
+          );
+        }
       }
     }
     // Always normalize to the correct bundled runtime path

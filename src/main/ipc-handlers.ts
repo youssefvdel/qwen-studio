@@ -16,7 +16,7 @@ import type { McpProxy } from "../mcp/proxy.js";
 import type { McpConfig, DialogOptions } from "../shared/types.js";
 
 /** Settings key for MCP config in electron-settings */
-export const MCP_CONFIG_KEY = "mcp_config";
+export const MCP_CONFIG_KEY = "mcpServers";
 
 /**
  * Dependencies injected from index.ts. This module has no direct access to

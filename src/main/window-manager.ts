@@ -281,6 +281,31 @@ export function createWindow(deps: WindowManagerDeps): BrowserWindow {
 
     console.log("[IPC] Initializing MCP...");
     deps.onMcpClientConnect();
+
+    // Inject JavaScript to sync MCP config from Electron to web app
+    mainWindow.webContents
+      .executeJavaScript(`
+        // Sync MCP config from Electron main process to web app
+        if (window.electronAPI && window.electronAPI.mcp_client_get_config) {
+          console.log('[MCP Sync] Starting config sync...');
+          window.electronAPI.mcp_client_get_config()
+            .then(config => {
+              console.log('[MCP Sync] Got config from Electron:', Object.keys(config || {}));
+              // Store in localStorage for web app to discover
+              if (config && Object.keys(config).length > 0) {
+                localStorage.setItem('qwen_mcp_config', JSON.stringify(config));
+                console.log('[MCP Sync] Config saved to localStorage');
+              }
+            })
+            .catch(err => console.error('[MCP Sync] Error:', err));
+        }
+      `)
+      .then(() => {
+        console.log("[Window] ✅ Injected MCP config sync script");
+      })
+      .catch((err) => {
+        console.error("[Window] Failed to inject MCP sync:", err);
+      });
   });
 
   mainWindow.webContents.on(

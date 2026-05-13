@@ -28,6 +28,16 @@ export interface McpServerConfig {
   cwd?: string;
   /** Timeout in milliseconds (default: 600000) */
   timeout?: number;
+  /** Server source: "official" for built-in, "user" for custom */
+  source?: "official" | "user";
+  /** Unique identifier for the server */
+  identifier?: string;
+  /** Where the server came from (e.g., "modelscope", "builtin") */
+  from?: string;
+  /** Package identifier */
+  fromId?: string;
+  /** Whether server is disabled */
+  disabled?: boolean;
 }
 
 /**
