@@ -31,9 +31,17 @@ export function adaptConfig(configs: McpConfig): McpConfig {
     const config = adapted[key];
     let cmd = config.command;
 
+    // Qwen-Core uses bun with tsx - ensure it uses bundled bun
+    if (key === "Qwen-Core") {
+      cmd = correctBunPath;
+      // Ensure tsx argument is present
+      if (config.args && !config.args.includes("tsx")) {
+        config.args.unshift("tsx");
+      }
+    }
     // Always normalize to the correct bundled runtime path
     // Replace any path ending with /bun (from any source) with the bundled one
-    if (cmd.endsWith("/bun") || cmd === "bun" || cmd === "npx") {
+    else if (cmd.endsWith("/bun") || cmd === "bun" || cmd === "npx") {
       cmd = correctBunPath;
       if (
         config.command === "npx" ||

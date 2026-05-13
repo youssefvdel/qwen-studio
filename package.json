@@ -1,6 +1,6 @@
 {
   "name": "qwen-studio",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "Open-source Qwen AI (Tongyi Qianwen) desktop client for Linux. Full MCP support, system tray, bundled runtimes. Alternative to official Windows/Mac-only Qwen Studio app.",
   "main": "./out/main/index.js",
   "author": "youssefvdel <youssefvdel@gmail.com>",

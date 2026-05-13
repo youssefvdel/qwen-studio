@@ -140,20 +140,25 @@ async function loadMcpConfig(): Promise<McpConfig> {
 /**
  * Default MCP server configuration for first-time users.
  * All servers use the bundled bun runtime.
+ * Qwen-Core is the primary MCP server with 21 tools.
  */
 function getDefaultMcpConfig(): McpConfig {
   const bunPath = getBunPath();
   const homeDir = require("os").homedir();
+  const qwenCorePath = require("path").join(__dirname, "../../qwen-core/src/index.ts");
+  
   return {
-    "Desktop-Commander": {
+    // Qwen-Core is the primary MCP server (always enabled)
+    "Qwen-Core": {
       command: bunPath,
-      args: ["x", "-y", "@wonderwhy-er/desktop-commander"],
+      args: ["tsx", qwenCorePath],
       transportType: "stdio",
       env: {
-        PUPPETEER_SKIP_DOWNLOAD: "true",
-        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "true",
+        MCP_ALLOWED_DIRS: `${homeDir},/tmp`,
+        MCP_TIMEOUT: "60000",
       },
     },
+    // Additional MCP servers
     Fetch: {
       command: bunPath,
       args: ["x", "-y", "@modelcontextprotocol/server-fetch"],
@@ -164,10 +169,14 @@ function getDefaultMcpConfig(): McpConfig {
       args: ["x", "-y", "@modelcontextprotocol/server-filesystem", homeDir],
       transportType: "stdio",
     },
-    "Sequential-Thinking": {
+    "Desktop-Commander": {
       command: bunPath,
-      args: ["x", "-y", "@modelcontextprotocol/server-sequential-thinking"],
+      args: ["x", "-y", "@wonderwhy-er/desktop-commander"],
       transportType: "stdio",
+      env: {
+        PUPPETEER_SKIP_DOWNLOAD: "true",
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "true",
+      },
     },
   };
 }
