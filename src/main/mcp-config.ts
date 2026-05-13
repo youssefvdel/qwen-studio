@@ -72,8 +72,8 @@ export function adaptConfig(configs: McpConfig): McpConfig {
     const config = adapted[key];
     let cmd = config.command;
 
-    // Qwen-Core uses bun with tsx - ensure it uses bundled bun
-    if (key === "Qwen-Core" || key === "qwen-core") {
+    // qwen-core uses bun with tsx - ensure it uses bundled bun
+    if (key === "qwen-core") {
       cmd = correctBunPath;
       // Ensure tsx argument is present
       if (config.args && !config.args.includes("tsx")) {

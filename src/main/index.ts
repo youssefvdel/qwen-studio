@@ -32,6 +32,7 @@ import {
 import { setupAutoUpdater } from "./updater.js";
 import { createWindow } from "./window-manager.js";
 import { registerIpcHandlers, MCP_CONFIG_KEY } from "./ipc-handlers.js";
+import { logger } from "./logger.js";
 import {
   ensureSkillsDir,
   getAvailableSkills,
@@ -39,8 +40,14 @@ import {
   openSkillsFolder,
   buildSkillsMenuTemplate,
 } from "./skills-manager.js";
+import {
+  configureApp,
+  setupProtocolHandler,
+  handleDeepLink,
+  isQuitting,
+  setQuitting,
+} from "./app-lifecycle.js";
 import type { McpConfig } from "../shared/types.js";
-import { getQwenCorePath, getDefaultQwenCoreConfig } from "./mcp-config.js";
 
 // === Constants ===
 const APP_VERSION = app.getVersion();
@@ -145,9 +152,17 @@ async function loadMcpConfig(): Promise<McpConfig> {
 function getDefaultMcpConfig(): McpConfig {
   const bunPath = getBunPath();
   const homeDir = require("os").homedir();
+  const qwenCorePath = require("path").join(__dirname, "../../qwen-core/src/index.ts");
   
   return {
-    "qwen-core": getDefaultQwenCoreConfig(),
+    "qwen-core": {
+      command: bunPath,
+      args: ["tsx", qwenCorePath],
+      env: {
+        MCP_ALLOWED_DIRS: `${homeDir},/tmp`,
+        MCP_TIMEOUT: "60000",
+      },
+    },
     "fetch": {
       command: bunPath,
       args: ["x", "-y", "@modelcontextprotocol/server-fetch"],

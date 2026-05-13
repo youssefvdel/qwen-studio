@@ -282,30 +282,32 @@ export function createWindow(deps: WindowManagerDeps): BrowserWindow {
     console.log("[IPC] Initializing MCP...");
     deps.onMcpClientConnect();
 
-    // Inject JavaScript to sync MCP config from Electron to web app
-    mainWindow.webContents
-      .executeJavaScript(`
-        // Sync MCP config from Electron main process to web app
-        if (window.electronAPI && window.electronAPI.mcp_client_get_config) {
-          console.log('[MCP Sync] Starting config sync...');
-          window.electronAPI.mcp_client_get_config()
-            .then(config => {
-              console.log('[MCP Sync] Got config from Electron:', Object.keys(config || {}));
-              // Store in localStorage for web app to discover
-              if (config && Object.keys(config).length > 0) {
-                localStorage.setItem('qwen_mcp_config', JSON.stringify(config));
-                console.log('[MCP Sync] Config saved to localStorage');
+    // Force web app to use Electron's MCP config (overrides web app's IndexedDB cache)
+    setTimeout(() => {
+      mainWindow.webContents
+        .executeJavaScript(`
+          (async () => {
+            try {
+              console.log('[MCP] Getting config from Electron main process...');
+              const electronConfig = await window.electronAPI.mcp_client_get_config();
+              console.log('[MCP] Electron config servers:', Object.keys(electronConfig || {}));
+              
+              if (electronConfig && Object.keys(electronConfig).length > 0) {
+                console.log('[MCP] Updating web app with Electron config...');
+                const result = await window.electronAPI.mcp_client_update_config(electronConfig);
+                console.log('[MCP] Config update result:', Object.keys(result || {}));
+                
+                // Trigger UI refresh
+                window.dispatchEvent(new CustomEvent('mcp-config-changed', { detail: result }));
               }
-            })
-            .catch(err => console.error('[MCP Sync] Error:', err));
-        }
-      `)
-      .then(() => {
-        console.log("[Window] ✅ Injected MCP config sync script");
-      })
-      .catch((err) => {
-        console.error("[Window] Failed to inject MCP sync:", err);
-      });
+            } catch (err) {
+              console.error('[MCP] Failed to sync config:', err);
+            }
+          })();
+        `)
+        .then(() => console.log('[Window] ✅ MCP config sync injected'))
+        .catch((err) => console.error('[Window] MCP sync failed:', err));
+    }, 3000);
   });
 
   mainWindow.webContents.on(
