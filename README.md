@@ -16,23 +16,23 @@ The official Qwen Studio app only supports Windows and macOS. This project bring
 ### Option 1: AppImage (recommended — works on every distro)
 
 ```bash
-wget https://github.com/youssefvdel/qwen-studio/releases/latest/download/Qwen-2.0.0-x86_64.AppImage
-chmod +x Qwen-2.0.0-x86_64.AppImage
-./Qwen-2.0.0-x86_64.AppImage
+wget https://github.com/youssefvdel/qwen-studio/releases/latest/download/Qwen-2.0.1-x86_64.AppImage
+chmod +x Qwen-2.0.1-x86_64.AppImage
+./Qwen-2.0.1-x86_64.AppImage
 ```
 
 ### Option 2: Debian/Ubuntu
 
 ```bash
-wget https://github.com/youssefvdel/qwen-studio/releases/latest/download/qwen-studio_2.0.0_amd64.deb
-sudo apt install ./qwen-studio_2.0.0_amd64.deb
+wget https://github.com/youssefvdel/qwen-studio/releases/latest/download/qwen-studio_2.0.1_amd64.deb
+sudo apt install ./qwen-studio_2.0.1_amd64.deb
 qwen-studio
 ```
 
 ### Option 3: Fedora/RHEL
 
 ```bash
-sudo dnf install https://github.com/youssefvdel/qwen-studio/releases/latest/download/qwen-studio-2.0.0.x86_64.rpm
+sudo dnf install https://github.com/youssefvdel/qwen-studio/releases/latest/download/qwen-studio-2.0.1.x86_64.rpm
 qwen-studio
 ```
 
