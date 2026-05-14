@@ -44,7 +44,7 @@ class McpProxy {
 
   /**
    * Set or update MCP server configurations
-   * Resets all clients when config changes
+   * Resets all clients when config changes and auto-connects
    */
   async setMCPServers(config: McpConfig): Promise<void> {
     console.log("[MCP Proxy] === setMCPServers called ===");
@@ -57,10 +57,25 @@ class McpProxy {
     this.mcpServers = { ...config };
     this.clients.clear();
 
+    // Auto-connect to all servers (not lazy - connect immediately)
+    for (const serverName of Object.keys(config)) {
+      try {
+        console.log(`[MCP Proxy] Auto-connecting to: ${serverName}`);
+        await this.getClient(serverName);
+        console.log(`[MCP Proxy] ✅ Connected to: ${serverName}`);
+      } catch (error) {
+        console.error(`[MCP Proxy] ❌ Failed to connect to ${serverName}:`, error);
+      }
+    }
+
     console.log("[MCP Proxy] Servers updated successfully");
     console.log(
       "[MCP Proxy] Current mcpServers:",
       Object.keys(this.mcpServers),
+    );
+    console.log(
+      "[MCP Proxy] Connected clients:",
+      Array.from(this.clients.keys()),
     );
   }
 

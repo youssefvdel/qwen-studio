@@ -50,7 +50,7 @@ export function getQwenCorePath(): string {
  */
 export function getDefaultQwenCoreConfig(): McpServerConfig {
   return {
-    command: "bun", // Will be replaced with bundled bun path by adaptConfig()
+    command: "npx", // Will be replaced with system npx path by adaptConfig()
     args: ["tsx", getQwenCorePath()],
     cwd: app.isPackaged 
       ? path.join(process.resourcesPath, "qwen-core")
@@ -72,13 +72,9 @@ export function adaptConfig(configs: McpConfig): McpConfig {
     const config = adapted[key];
     let cmd = config.command;
 
-    // qwen-core uses bun with tsx - ensure it uses bundled bun
+    // qwen-core uses npx tsx - use system npx
     if (key === "qwen-core") {
-      cmd = correctBunPath;
-      // Ensure tsx argument is present
-      if (config.args && !config.args.includes("tsx")) {
-        config.args.unshift("tsx");
-      }
+      cmd = "npx";
       // Update cwd and path for packaged app
       if (app.isPackaged) {
         config.cwd = path.join(process.resourcesPath, "qwen-core");
@@ -156,9 +152,15 @@ export function adaptConfig(configs: McpConfig): McpConfig {
     ].join(":");
 
     config.env = {
+      HOME: os.homedir(),
+      USER: process.env.USER || os.userInfo().username,
       PATH,
-      ...process.env,
-      ...config.env,
+      MCP_ALLOWED_DIRS: [
+        os.homedir(),
+        path.join(os.homedir(), "Projects"),
+        "/tmp",
+      ].join(","),
+      MCP_TIMEOUT: "60000",
     };
   }
 

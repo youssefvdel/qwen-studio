@@ -120,14 +120,41 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
 
   ipcMain.handle("mcp_client_connect", async (): Promise<void> => {
     try {
+      console.log("\n========== [MCP CONNECT] START ==========");
+      console.log("[MCP CONNECT] Loading config...");
       const config = await deps.loadMcpConfig();
+      console.log("[MCP CONNECT] Loaded config keys:", Object.keys(config));
+      
       if (Object.keys(config).length > 0) {
+        console.log("[MCP CONNECT] Calling adaptConfig...");
         const adapted = deps.adaptConfig(config);
+        console.log("[MCP CONNECT] Adapted config:", JSON.stringify(adapted, null, 2));
+        
+        console.log("[MCP CONNECT] Calling setMCPServers...");
         await deps.mcpServer.setMCPServers(adapted);
-        console.log("[IPC] MCP servers connected:", Object.keys(config));
+        console.log("[MCP CONNECT] setMCPServers completed");
+        console.log("[MCP CONNECT] MCP servers connected:", Object.keys(config));
+        
+        // Notify UI to refresh MCP server list
+        console.log("[MCP CONNECT] Sending mcp_servers_changed event...");
+        const win = deps.getMainWindow();
+        if (win) {
+          win.webContents.send("event_from_main", {
+            type: "mcp_servers_changed",
+            payload: { servers: Object.keys(config) },
+          });
+          console.log("[MCP CONNECT] Event sent to UI");
+        } else {
+          console.log("[MCP CONNECT] ⚠️ No main window found!");
+        }
+      } else {
+        console.log("[MCP CONNECT] ⚠️ No config found");
       }
+      console.log("========== [MCP CONNECT] END ==========\n");
     } catch (error) {
-      console.error("[IPC] mcpClientConnect error:", error);
+      console.error("\n========== [MCP CONNECT] ERROR ==========");
+      console.error("[MCP CONNECT] Error:", error);
+      console.error("===========================================\n");
     }
   });
 
@@ -137,19 +164,21 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
 
   ipcMain.handle("mcp_client_tool_list", async (_event, serverName: string) => {
     try {
-      console.log(`[IPC] Listing tools for server: "${serverName}"`);
-      console.log(
-        "[IPC] Available servers:",
-        Object.keys(deps.mcpServer.getMCPServers()),
-      );
+      console.log("\n========== [MCP TOOL LIST] START ==========");
+      console.log(`[MCP TOOL LIST] Requested server: "${serverName}"`);
+      const servers = deps.mcpServer.getMCPServers();
+      console.log("[MCP TOOL LIST] Available servers:", Object.keys(servers));
+      console.log("[MCP TOOL LIST] Server config for", serverName, ":", servers[serverName]);
+      
+      console.log("\n[MCP TOOL LIST] Calling listTools...");
       const list = await deps.mcpServer.listTools({ serverName });
-      console.log(`[IPC] Tools for "${serverName}":`, list);
+      console.log(`[MCP TOOL LIST] Tools returned:`, list?.tools?.length || 0, "tools");
+      console.log("========== [MCP TOOL LIST] END ==========\n");
       return list;
     } catch (error) {
-      console.error(
-        `[IPC] mcpClientToolList error for "${serverName}":`,
-        error,
-      );
+      console.error("\n========== [MCP TOOL LIST] ERROR ==========");
+      console.error(`[MCP TOOL LIST] Error for "${serverName}":`, error);
+      console.error("===========================================\n");
       throw error;
     }
   });
@@ -165,36 +194,68 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   });
 
   ipcMain.handle("mcp_client_get_config", async (): Promise<McpConfig> => {
-    return deps.mcpServer.getMCPServers();
+    console.log("\n[MCP GET CONFIG] Called");
+    const result = deps.mcpServer.getMCPServers();
+    console.log("[MCP GET CONFIG] Returning servers:", Object.keys(result));
+    return result;
   });
 
   ipcMain.handle(
     "mcp_client_update_config",
     async (_event, config: McpConfig): Promise<McpConfig> => {
       try {
+        console.log("\n========== [MCP UPDATE CONFIG] START ==========");
         console.log(
-          "[IPC] Updating MCP config:",
+          "[MCP UPDATE] Received config from UI:",
           JSON.stringify(config, null, 2),
         );
-        console.log("[IPC] Config keys:", Object.keys(config));
+        console.log("[MCP UPDATE] Config keys:", Object.keys(config));
 
         for (const [name, serverConfig] of Object.entries(config)) {
-          console.log(`[IPC] Server "${name}":`, {
+          console.log(`\n[MCP UPDATE] Server "${name}":`, {
             command: serverConfig.command,
             args: serverConfig.args,
+            cwd: serverConfig.cwd,
+            env: serverConfig.env ? Object.keys(serverConfig.env) : "none",
             transportType: serverConfig.transportType,
           });
         }
 
+        console.log("\n[MCP UPDATE] Calling adaptConfig...");
         const adapted = deps.adaptConfig(config);
-        console.log("[IPC] Adapted config:", JSON.stringify(adapted, null, 2));
+        console.log("[MCP UPDATE] Adapted config:", JSON.stringify(adapted, null, 2));
 
+        console.log("\n[MCP UPDATE] Calling setMCPServers...");
         await deps.mcpServer.setMCPServers(adapted);
+        console.log("[MCP UPDATE] setMCPServers completed");
+
+        console.log("\n[MCP UPDATE] Saving to settings...");
         await deps.settings.set(MCP_CONFIG_KEY, config as any);
-        console.log("[IPC] MCP config saved successfully");
-        return deps.mcpServer.getMCPServers();
+        console.log("[MCP UPDATE] Settings saved");
+
+        console.log("\n[MCP UPDATE] Getting servers...");
+        const result = deps.mcpServer.getMCPServers();
+        console.log("[MCP UPDATE] getMCPServers returned:", Object.keys(result));
+        
+        // Notify UI to refresh MCP server list
+        console.log("\n[MCP UPDATE] Sending mcp_servers_changed event to UI...");
+        const win = deps.getMainWindow();
+        if (win) {
+          win.webContents.send("event_from_main", {
+            type: "mcp_servers_changed",
+            payload: { servers: Object.keys(config) },
+          });
+          console.log("[MCP UPDATE] Event sent to UI");
+        } else {
+          console.log("[MCP UPDATE] ⚠️ No main window found!");
+        }
+        
+        console.log("\n========== [MCP UPDATE CONFIG] END ==========\n");
+        return result;
       } catch (error) {
-        console.error("[IPC] mcpClientUpdateConfig error:", error);
+        console.error("\n========== [MCP UPDATE CONFIG] ERROR ==========");
+        console.error("[MCP UPDATE] Error:", error);
+        console.error("===========================================\n");
         throw error;
       }
     },
@@ -205,7 +266,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   ipcMain.handle(
     "switch_theme",
     async (_event, theme: "light" | "dark"): Promise<void> => {
-      await deps.settings.set("app_theme", theme);
+      // Theme is managed by account settings, don't persist locally
       const win = deps.getMainWindow();
       win?.webContents.send("event_from_main", {
         type: "theme_changed",
