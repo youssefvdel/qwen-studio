@@ -62,7 +62,7 @@ qwen-studio
 ![Main Window](resources/screenshots/skills_menu.png)
 _Main chat interface with Skills menu open_
 
-![MCP Configuration](resources/screenshots/mcp_page.png)
+![MCP Configuration](resources/screenshots/mcp_config.png)
 _MCP configuration panel_
 
 ---
@@ -95,7 +95,7 @@ Yes, but some Wayland compositors need `--enable-features=UseOzonePlatform --ozo
 
 ### Browser vs Desktop — why use this?
 
-| Browser              | Qwen Studio for Linux               |
+| Browser              | Qwen Studio for Linux                |
 | -------------------- | ------------------------------------ |
 | No system tray       | System tray integration              |
 | No MCP support       | Full MCP (files, browser, databases) |
@@ -118,13 +118,13 @@ graph TB
         Preload[Preload Script<br/>Context Bridge]
         MCP[MCP Proxy<br/>Server Management]
     end
-    
+
     subgraph External["External Services"]
         Qwen[chat.qwen.ai<br/>Qwen Cloud]
         OAuth[OAuth Provider<br/>GitHub/Google/Alibaba]
         MCPS[MCP Servers<br/>Filesystem/Browser/DB]
     end
-    
+
     Main -->|Load URL| Render
     Render -->|IPC| Preload
     Preload -->|Invoke| Main
@@ -160,7 +160,7 @@ sequenceDiagram
     participant OAuth
     participant Main
     participant Renderer
-    
+
     User->>WebView: Click Login
     WebView->>OAuth: Open OAuth Popup
     User->>OAuth: Authenticate

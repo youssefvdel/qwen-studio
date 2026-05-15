@@ -3,6 +3,7 @@
 ## Overview
 
 qwen-studio comes with **qwen-core** MCP server pre-configured with 40 tools including:
+
 - Filesystem operations (read, write, list, search, delete)
 - Git operations (status, diff, commit, add, log)
 - Web access (fetch, search)
@@ -13,6 +14,7 @@ qwen-studio comes with **qwen-core** MCP server pre-configured with 40 tools inc
 ## Automatic Configuration
 
 On first launch, qwen-studio automatically creates the MCP configuration at:
+
 ```
 ~/.config/qwen-studio/settings.json
 ```
@@ -31,16 +33,20 @@ If you need to manually add the MCP server:
 
 ```json
 {
-  "qwen-core": {
-    "command": "npx",
-    "args": ["tsx", "/opt/qwen-studio/resources/qwen-core/src/index.ts"],
-    "cwd": "/opt/qwen-studio/resources/qwen-core",
-    "env": {
-      "HOME": "/home/youssefvdel",
-      "USER": "youssefvdel",
-      "PATH": "/usr/local/bin:/usr/bin:/bin",
-      "MCP_ALLOWED_DIRS": "/home/youssefvdel,/tmp",
-      "MCP_TIMEOUT": "60000"
+  "mcpServers": {
+    "qwen-core": {
+      "name": "qwen-core",
+      "command": "npx",
+      "args": ["tsx", "/opt/qwen-studio/resources/qwen-core/src/index.ts"],
+      "cwd": "/opt/qwen-studio/resources/qwen-core",
+      "env": {
+        "HOME": "/home/<user>",
+        "USER": "<user>",
+        "PATH": "/opt/qwen-studio/resources/resources/bun/linux-x64:/opt/qwen-studio/resources/resources/uv/linux-x64:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/snap/bin:/home/<user>/.local/bin",
+        "MCP_ALLOWED_DIRS": "/home/<user>,/home/<user>/Projects,/tmp",
+        "MCP_TIMEOUT": "60000"
+      },
+      "transportType": "stdio"
     }
   }
 }
@@ -58,18 +64,18 @@ If you need to manually add the MCP server:
 
 After setup, you'll have access to these tool categories:
 
-| Category | Tools | Examples |
-|----------|-------|----------|
-| File (15) | read_file, write_file, list_directory, search_files | Read configs, write code |
-| Git (5) | git_status, git_diff, git_commit, git_add | Version control |
-| Web (2) | fetch_url, web_search | Get web content |
-| System (3) | execute_command, list_processes | Run shell commands |
-| Search (2) | grep_search, regex_search | Find text in files |
-| Time (2) | get_current_time, parse_datetime | Time operations |
-| PDF (1) | read_pdf | Extract PDF text |
-| Skills (3) | list_skills, load_skill, create_skill | Manage skills |
-| Agent (7) | todo_write, sequential_thinking, etc. | Planning & reasoning |
-| **Total** | **40 tools** | |
+| Category   | Tools                                               | Examples                 |
+| ---------- | --------------------------------------------------- | ------------------------ |
+| File (15)  | read_file, write_file, list_directory, search_files | Read configs, write code |
+| Git (5)    | git_status, git_diff, git_commit, git_add           | Version control          |
+| Web (2)    | fetch_url, web_search                               | Get web content          |
+| System (3) | execute_command, list_processes                     | Run shell commands       |
+| Search (2) | grep_search, regex_search                           | Find text in files       |
+| Time (2)   | get_current_time, parse_datetime                    | Time operations          |
+| PDF (1)    | read_pdf                                            | Extract PDF text         |
+| Skills (3) | list_skills, load_skill, create_skill               | Manage skills            |
+| Agent (7)  | todo_write, sequential_thinking, etc.               | Planning & reasoning     |
+| **Total**  | **40 tools**                                        |                          |
 
 ## Sequential Thinking Tool
 
@@ -77,6 +83,7 @@ The **sequential_thinking** tool is now the official MCP implementation from:
 https://github.com/modelcontextprotocol/servers/tree/main/src/sequentialthinking
 
 ### Features:
+
 - Dynamic thought adjustment (can increase/decrease total thoughts)
 - Revision support (revisit previous thoughts)
 - Branching support (explore alternative paths)
@@ -100,12 +107,14 @@ Thought 5/5: "Final solution based on analysis..."
 ### MCP Server Not Connecting
 
 1. Check if Node.js and npx are installed:
+
    ```bash
    node --version
    npx --version
    ```
 
 2. Verify qwen-core dependencies:
+
    ```bash
    cd /opt/qwen-studio/resources/qwen-core
    npm install
@@ -151,11 +160,12 @@ qwen-core is bundled with qwen-studio and updates automatically when you update 
 **Need Help?**
 
 Check the logs at:
+
 ```bash
 tail -f /tmp/qwen-studio-debug.log
 ```
 
-Or report issues at: https://github.com/youssefvdel/qwen-studio/issues
+Or report issues at: https://github.com/<user>>/qwen-studio/issues
 
 ## Autonomous Agent Capabilities
 
@@ -163,11 +173,11 @@ qwen-core now includes **autonomous agent** capabilities similar to Claude Code 
 
 ### Available Agent Tools
 
-| Tool | Description |
-|------|-------------|
-| `autonomous_agent` | Execute dev tasks with auto build/test/fix cycles |
-| `error_memory_status` | View learned errors and fixes |
-| `clear_error_memory` | Clear error memory (resets learnings) |
+| Tool                  | Description                                       |
+| --------------------- | ------------------------------------------------- |
+| `autonomous_agent`    | Execute dev tasks with auto build/test/fix cycles |
+| `error_memory_status` | View learned errors and fixes                     |
+| `clear_error_memory`  | Clear error memory (resets learnings)             |
 
 ### How It Works
 
@@ -206,6 +216,7 @@ The agent maintains a memory of all encountered errors:
 ### Max Effort Mode
 
 When enabled (default), the agent:
+
 - Runs comprehensive code analysis
 - Searches codebase for similar issues
 - Reviews git history for recent changes
@@ -255,7 +266,7 @@ The agent can be configured with:
 
 - `workspaceRoot`: Project directory
 - `buildCommand`: Custom build command
-- `testCommand`: Custom test command  
+- `testCommand`: Custom test command
 - `maxIterations`: Maximum fix attempts (1-50)
 - `enableMaxEffort`: Enable comprehensive analysis (default: true)
 
