@@ -256,25 +256,21 @@ Default MCP servers are created on first launch. Customize via the app's setting
 
 ```json
 {
-  "Filesystem": {
-    "command": "bun",
-    "args": [
-      "x",
-      "-y",
-      "@modelcontextprotocol/server-filesystem",
-      "/home/user/Documents"
-    ],
-    "transportType": "stdio"
-  },
-  "Fetch": {
-    "command": "bun",
-    "args": ["x", "-y", "@modelcontextprotocol/server-fetch"],
-    "transportType": "stdio"
-  },
-  "Browser": {
-    "command": "uvx",
-    "args": ["@anthropic/mcp-server-playwright"],
-    "transportType": "stdio"
+  "mcpServers": {
+    "qwen-core": {
+      "name": "qwen-core",
+      "command": "npx",
+      "args": ["tsx", "/opt/qwen-studio/resources/qwen-core/src/index.ts"],
+      "cwd": "/opt/qwen-studio/resources/qwen-core",
+      "env": {
+        "HOME": "/home/<user>",
+        "USER": "<user>",
+        "PATH": "/opt/qwen-studio/resources/resources/bun/linux-x64:/opt/qwen-studio/resources/resources/uv/linux-x64:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/snap/bin:/home/<user>/.local/bin",
+        "MCP_ALLOWED_DIRS": "/home/<user>,/home/<user>/Projects,/tmp",
+        "MCP_TIMEOUT": "60000"
+      },
+      "transportType": "stdio"
+    }
   }
 }
 ```
