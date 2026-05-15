@@ -82,10 +82,7 @@ export interface ElectronAPI {
   get_app_version: () => Promise<string>;
   get_platform_info: () => Promise<{ platform: string; arch: string }>;
   open_external_link: (url: string) => Promise<void>;
-  show_native_dialog: (options: {
-    title?: string;
-    message: string;
-  }) => Promise<void>;
+  show_native_dialog: (options: { title?: string; message: string }) => Promise<void>;
   request_file_access: (
     purpose: string,
     returnFile?: boolean,

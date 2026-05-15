@@ -20,7 +20,7 @@ export function setupAutoUpdater() {
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
 
-  autoUpdater.on("update-available", (info) => {
+  autoUpdater.on("update-available", info => {
     console.log(`[Updater] Update available: ${info.version}`);
     dialog
       .showMessageBox({
@@ -31,18 +31,18 @@ export function setupAutoUpdater() {
         defaultId: 0,
         cancelId: 1,
       })
-      .then((result) => {
+      .then(result => {
         if (result.response === 0) {
           autoUpdater.downloadUpdate();
         }
       });
   });
 
-  autoUpdater.on("download-progress", (progressObj) => {
+  autoUpdater.on("download-progress", progressObj => {
     console.log(`[Updater] Downloading: ${progressObj.percent}%`);
   });
 
-  autoUpdater.on("update-downloaded", (info) => {
+  autoUpdater.on("update-downloaded", info => {
     console.log(`[Updater] Update downloaded: ${info.version}`);
     dialog
       .showMessageBox({
@@ -53,14 +53,14 @@ export function setupAutoUpdater() {
         defaultId: 0,
         cancelId: 1,
       })
-      .then((result) => {
+      .then(result => {
         if (result.response === 0) {
           setImmediate(() => autoUpdater.quitAndInstall());
         }
       });
   });
 
-  autoUpdater.on("error", (err) => {
+  autoUpdater.on("error", err => {
     console.error("[Updater] Update error:", err);
   });
 

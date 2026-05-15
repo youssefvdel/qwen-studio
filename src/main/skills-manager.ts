@@ -52,7 +52,7 @@ export async function getAvailableSkills(): Promise<string[]> {
   ensureSkillsDir();
   try {
     const files = await fs.promises.readdir(SKILLS_DIR);
-    return files.filter((f) => f.endsWith(".md") || f.endsWith(".txt"));
+    return files.filter(f => f.endsWith(".md") || f.endsWith(".txt"));
   } catch (error) {
     console.error("[Skills] Error reading skills dir:", error);
     return [];
@@ -174,19 +174,14 @@ export async function injectSkill(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[Skills] Failed to inject ${skillName}:`, err);
-    dialog.showErrorBox(
-      "Skill Error",
-      `Failed to inject skill: ${skillName}\n\nError: ${msg}`,
-    );
+    dialog.showErrorBox("Skill Error", `Failed to inject skill: ${skillName}\n\nError: ${msg}`);
   }
 }
 
 /**
  * Open the skills directory in the system file manager.
  */
-export function openSkillsFolder(
-  getMainWindow: () => Electron.BrowserWindow | null,
-): void {
+export function openSkillsFolder(getMainWindow: () => Electron.BrowserWindow | null): void {
   ensureSkillsDir();
   shell.openPath(SKILLS_DIR);
 }

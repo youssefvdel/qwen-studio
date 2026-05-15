@@ -69,24 +69,15 @@ class McpProxy {
     }
 
     console.log("[MCP Proxy] Servers updated successfully");
-    console.log(
-      "[MCP Proxy] Current mcpServers:",
-      Object.keys(this.mcpServers),
-    );
-    console.log(
-      "[MCP Proxy] Connected clients:",
-      Array.from(this.clients.keys()),
-    );
+    console.log("[MCP Proxy] Current mcpServers:", Object.keys(this.mcpServers));
+    console.log("[MCP Proxy] Connected clients:", Array.from(this.clients.keys()));
   }
 
   /**
    * Get current MCP server configurations
    */
   getMCPServers(): McpConfig {
-    console.log(
-      "[MCP Proxy] getMCPServers called, returning:",
-      Object.keys(this.mcpServers),
-    );
+    console.log("[MCP Proxy] getMCPServers called, returning:", Object.keys(this.mcpServers));
     return this.mcpServers;
   }
 
@@ -137,10 +128,7 @@ class McpProxy {
     const config = this.mcpServers[serverName];
     if (!config) {
       console.error(`[MCP Proxy] ❌ Server config not found: "${serverName}"`);
-      console.error(
-        `[MCP Proxy] Available configs:`,
-        JSON.stringify(this.mcpServers, null, 2),
-      );
+      console.error(`[MCP Proxy] Available configs:`, JSON.stringify(this.mcpServers, null, 2));
       return null;
     }
 
@@ -172,14 +160,8 @@ class McpProxy {
 
       return client;
     } catch (error) {
-      console.error(
-        `[MCP Proxy] ❌ Failed to connect to "${serverName}":`,
-        error,
-      );
-      console.error(
-        `[MCP Proxy] Error details:`,
-        error instanceof Error ? error.stack : error,
-      );
+      console.error(`[MCP Proxy] ❌ Failed to connect to "${serverName}":`, error);
+      console.error(`[MCP Proxy] Error details:`, error instanceof Error ? error.stack : error);
       return null;
     }
   }
@@ -210,9 +192,7 @@ class McpProxy {
    */
   async disconnectAll(): Promise<void> {
     console.log("[MCP Proxy] Disconnecting all clients");
-    const promises = Array.from(this.clients.values()).map((client) =>
-      client.disconnect(),
-    );
+    const promises = Array.from(this.clients.values()).map(client => client.disconnect());
     await Promise.allSettled(promises);
     this.clients.clear();
   }
@@ -220,10 +200,7 @@ class McpProxy {
   /**
    * HTTP handler for /listTools
    */
-  private async listToolsByHTTP(
-    req: express.Request,
-    res: express.Response,
-  ): Promise<void> {
+  private async listToolsByHTTP(req: express.Request, res: express.Response): Promise<void> {
     try {
       const serverName = req.query.serverName as string;
       if (!serverName) {
@@ -240,10 +217,7 @@ class McpProxy {
   /**
    * HTTP handler for /callTool
    */
-  private async callToolByHTTP(
-    req: express.Request,
-    res: express.Response,
-  ): Promise<void> {
+  private async callToolByHTTP(req: express.Request, res: express.Response): Promise<void> {
     try {
       const params: ToolCallParams = req.body;
       if (!params.serverName || !params.toolName) {

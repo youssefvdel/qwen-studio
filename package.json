@@ -1,6 +1,7 @@
 {
   "name": "qwen-studio",
   "version": "2.1.0",
+  "type": "module",
   "description": "Open-source Qwen AI (Tongyi Qianwen) desktop client for Linux. Full MCP support, system tray, bundled runtimes. Alternative to official Windows/Mac-only Qwen Studio app.",
   "main": "./out/main/index.js",
   "author": "youssefvdel <youssefvdel@gmail.com>",
@@ -21,8 +22,15 @@
     "build:rpm": "electron-builder --linux rpm",
     "build:all": "electron-builder --linux",
     "copy-assets": "cp -r src/renderer/* out/renderer/ 2>/dev/null || mkdir -p out/renderer && cp -r src/renderer/* out/renderer/",
-    "lint": "eslint src/",
+    "lint": "eslint src/ --ext .ts,.tsx",
+    "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,json,md}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,json,md}\"",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "prepare": "husky",
     "postinstall": "node scripts/download-runtimes.js"
   },
   "dependencies": {
@@ -53,11 +61,20 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.1",
     "@types/node": "^22.13.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.3",
+    "@typescript-eslint/parser": "^8.59.3",
+    "@vitest/coverage-v8": "^1.6.1",
     "electron": "^34.0.0",
     "electron-builder": "^26.8.1",
     "eslint": "^9.20.0",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-prettier": "^5.5.5",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
+    "prettier": "^3.8.3",
     "ts-node": "^10.9.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^1.6.1"
   },
   "keywords": [
     "qwen",
@@ -77,5 +94,14 @@
     "rpm",
     "alibaba-cloud"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "lint-staged": {
+    "src/**/*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "src/**/*.{js,json,md}": [
+      "prettier --write"
+    ]
+  }
 }

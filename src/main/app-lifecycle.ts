@@ -57,13 +57,11 @@ function registerAppImageProtocolHandler(): void {
       const files = fs.readdirSync(desktopDir);
       console.log(
         "[Protocol] Found desktop files:",
-        files.filter((f) => f.toLowerCase().includes("qwen")),
+        files.filter(f => f.toLowerCase().includes("qwen")),
       );
 
       const appimageDesktop = files.find(
-        (f) =>
-          f.toLowerCase().includes("qwen") ||
-          f.toLowerCase().includes("qwen-studio"),
+        f => f.toLowerCase().includes("qwen") || f.toLowerCase().includes("qwen-studio"),
       );
 
       if (!appimageDesktop) {
@@ -75,10 +73,7 @@ function registerAppImageProtocolHandler(): void {
       console.log("[Protocol] Found:", desktopFile);
 
       let content = fs.readFileSync(desktopFile, "utf-8");
-      console.log(
-        "[Protocol] Current MimeType:",
-        content.match(/MimeType=.*/)?.[0] || "none",
-      );
+      console.log("[Protocol] Current MimeType:", content.match(/MimeType=.*/)?.[0] || "none");
 
       if (content.includes("x-scheme-handler/qwen")) {
         console.log("[Protocol] Already registered");
@@ -86,10 +81,7 @@ function registerAppImageProtocolHandler(): void {
       }
 
       if (content.includes("MimeType=")) {
-        content = content.replace(
-          /(MimeType=[^;]*);/,
-          "$1;x-scheme-handler/qwen;",
-        );
+        content = content.replace(/(MimeType=[^;]*);/, "$1;x-scheme-handler/qwen;");
       } else {
         content += "\nMimeType=x-scheme-handler/qwen;\n";
       }
@@ -166,39 +158,36 @@ export function configureApp(): void {
  * Handle qwen:// deep link URLs.
  * Windows app uses this exact pattern - validate and send "set_cookie" event.
  */
-export function handleDeepLink(
-  url: string,
-  mainWindow: BrowserWindow | null,
-): void {
+export function handleDeepLink(url: string, mainWindow: BrowserWindow | null): void {
   console.log("[DeepLink] Handling URL:", url);
-  
+
   // Validate URL format (same as Windows app)
   if (!validateDeepLink(url)) {
     console.log("[DeepLink] ❌ Invalid deep link format");
     return;
   }
-  
+
   const urlObj = new URL(url);
   const action = urlObj.hostname; // "open"
   const token = urlObj.searchParams.get("token");
-  
+
   console.log("[DeepLink] Action:", action, "Token length:", token?.length);
-  
+
   if (action === "open" && token) {
     console.log("[DeepLink] ✅ Valid auth deep link received");
-    
+
     // Focus existing window
     if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
-      
+
       // Send set_cookie event (Windows app pattern)
       console.log("[DeepLink] Sending set_cookie event to renderer");
       mainWindow.webContents.send("event_from_main", {
         type: "set_cookie",
         payload: token,
       });
-      
+
       console.log("[DeepLink] ✅ Token sent to renderer");
     } else {
       console.log("[DeepLink] ❌ No window available");
@@ -237,9 +226,7 @@ export function setupProtocolHandler(handlers: {
   // THEN: Set as default protocol client (uses the .desktop file)
   if (process.defaultApp) {
     if (process.argv.length >= 2) {
-      app.setAsDefaultProtocolClient("qwen", process.execPath, [
-        process.argv[1],
-      ]);
+      app.setAsDefaultProtocolClient("qwen", process.execPath, [process.argv[1]]);
     }
   } else {
     app.setAsDefaultProtocolClient("qwen");
@@ -255,12 +242,12 @@ export function setupProtocolHandler(handlers: {
   app.on("second-instance", (_event, commandLine) => {
     handlers.onCreateWindow();
 
-    const url = commandLine.find((arg) => arg.startsWith("qwen://"));
+    const url = commandLine.find(arg => arg.startsWith("qwen://"));
     if (url) handlers.onDeepLink(url);
   });
 
   // Also check for qwen:// in initial command line args (first launch)
-  const qwenUrl = process.argv.find((arg) => arg.startsWith("qwen://"));
+  const qwenUrl = process.argv.find(arg => arg.startsWith("qwen://"));
   if (qwenUrl) {
     console.log("[Protocol] Deep link found in startup args:", qwenUrl);
     // Queue it - will be processed after window is created

@@ -14,12 +14,7 @@
  */
 
 import { contextBridge, ipcRenderer } from "electron";
-import type {
-  ElectronAPI,
-  McpConfig,
-  ToolCallParams,
-  DialogOptions,
-} from "../shared/types.js";
+import type { ElectronAPI, McpConfig, ToolCallParams, DialogOptions } from "../shared/types.js";
 
 /**
  * Simple event emitter for the renderer
@@ -37,7 +32,7 @@ class EventEmitter {
   emit(eventName: string, payload: unknown) {
     const listeners = this.listeners[eventName];
     if (listeners) {
-      listeners.forEach((listener) => listener(payload));
+      listeners.forEach(listener => listener(payload));
     }
   }
 }
@@ -57,10 +52,8 @@ const electronAPI: ElectronAPI = {
   toggle_hidden_devtools: () => ipcRenderer.invoke("toggle_hidden_devtools"),
   get_app_version: () => ipcRenderer.invoke("get_app_version"),
   get_platform_info: () => ipcRenderer.invoke("get_platform_info"),
-  open_external_link: (url: string) =>
-    ipcRenderer.invoke("open_external_link", url),
-  show_native_dialog: (options: DialogOptions) =>
-    ipcRenderer.invoke("show_native_dialog", options),
+  open_external_link: (url: string) => ipcRenderer.invoke("open_external_link", url),
+  show_native_dialog: (options: DialogOptions) => ipcRenderer.invoke("show_native_dialog", options),
   request_file_access: (purpose: string, returnFile?: boolean) =>
     ipcRenderer.invoke("request_file_access", purpose, returnFile),
 
@@ -76,8 +69,7 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.invoke("mcp_client_update_config", config),
 
   // === Theme & Localization ===
-  switch_theme: (theme: "light" | "dark") =>
-    ipcRenderer.invoke("switch_theme", theme),
+  switch_theme: (theme: "light" | "dark") => ipcRenderer.invoke("switch_theme", theme),
   switch_ln: (language: string) => ipcRenderer.invoke("switch_ln", language),
   update_title_bar_for_system_theme: (isDark: boolean) =>
     ipcRenderer.invoke("update_title_bar_for_system_theme", isDark),
@@ -111,10 +103,8 @@ if (process.contextIsolated) {
     // This is the standard electron API (ipcRenderer, etc.)
     contextBridge.exposeInMainWorld("electron", {
       ipcRenderer: {
-        send: (channel: string, ...args: unknown[]) =>
-          ipcRenderer.send(channel, ...args),
-        invoke: (channel: string, ...args: unknown[]) =>
-          ipcRenderer.invoke(channel, ...args),
+        send: (channel: string, ...args: unknown[]) => ipcRenderer.send(channel, ...args),
+        invoke: (channel: string, ...args: unknown[]) => ipcRenderer.invoke(channel, ...args),
         on: (channel: string, func: (...args: unknown[]) => void) => {
           ipcRenderer.on(channel, (_, ...args) => func(...args));
         },
@@ -125,20 +115,15 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld("electronAPI", electronAPI);
     console.log("[Preload] ✅ electronAPI exposed via contextBridge");
   } catch (error) {
-    console.error(
-      "[Preload] ❌ Failed to expose APIs via contextBridge:",
-      error,
-    );
+    console.error("[Preload] ❌ Failed to expose APIs via contextBridge:", error);
   }
 } else {
   console.log("[Preload] 🔧 Direct assignment (contextIsolated=false)");
   // Fallback for non-context-isolated environments
   (window as any).electron = {
     ipcRenderer: {
-      send: (channel: string, ...args: unknown[]) =>
-        ipcRenderer.send(channel, ...args),
-      invoke: (channel: string, ...args: unknown[]) =>
-        ipcRenderer.invoke(channel, ...args),
+      send: (channel: string, ...args: unknown[]) => ipcRenderer.send(channel, ...args),
+      invoke: (channel: string, ...args: unknown[]) => ipcRenderer.invoke(channel, ...args),
       on: (channel: string, func: (...args: unknown[]) => void) => {
         ipcRenderer.on(channel, (_, ...args) => func(...args));
       },

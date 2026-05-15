@@ -146,14 +146,14 @@ export function createWindow(deps: WindowManagerDeps): BrowserWindow {
   mainWindow.webContents.on("will-navigate", (event, url) => {
     console.log("[NAV] will-navigate:", url);
     console.log("[NAV] resourceType:", "main-frame");
-    
+
     if (url.startsWith("qwen://")) {
       event.preventDefault();
       console.log("[Window] ✅ Caught qwen:// redirect:", url);
       deps.onDeepLink(url);
       return;
     }
-    
+
     // Allow navigation to chat.qwen.ai and related domains
     const allowedHosts = [
       "chat.qwen.ai",
@@ -171,13 +171,13 @@ export function createWindow(deps: WindowManagerDeps): BrowserWindow {
       "google.com",
       "accounts.google.com",
     ];
-    
+
     try {
       const urlObj = new URL(url);
-      const isAllowed = allowedHosts.some(host => 
-        urlObj.hostname === host || urlObj.hostname.endsWith("." + host)
+      const isAllowed = allowedHosts.some(
+        host => urlObj.hostname === host || urlObj.hostname.endsWith("." + host),
       );
-      
+
       if (!isAllowed && !url.startsWith("data:")) {
         console.log("[NAV] ❌ Blocking external navigation, opening in system browser:", url);
         event.preventDefault();
@@ -191,10 +191,10 @@ export function createWindow(deps: WindowManagerDeps): BrowserWindow {
   });
 
   // Handle popup windows - keep auth IN-APP like Windows app does
-  mainWindow.webContents.setWindowOpenHandler((details) => {
+  mainWindow.webContents.setWindowOpenHandler(details => {
     console.log("[POPUP] setWindowOpenHandler:", details.url);
     console.log("[POPUP] features:", details.features);
-    
+
     // If it's a qwen:// deep link, handle it directly
     if (details.url.startsWith("qwen://")) {
       console.log("[POPUP] ✅ Caught qwen:// from popup:", details.url);
@@ -218,7 +218,7 @@ export function createWindow(deps: WindowManagerDeps): BrowserWindow {
 
     if (isAuthUrl) {
       console.log("[POPUP] 🔐 Opening auth URL in-app popup:", details.url);
-      
+
       const authWindow = new BrowserWindow({
         width: 500,
         height: 600,
@@ -275,7 +275,7 @@ export function createWindow(deps: WindowManagerDeps): BrowserWindow {
       .then(() => {
         console.log("[Window] ✅ Injected CSS to hide mobile overlay");
       })
-      .catch((err) => {
+      .catch(err => {
         console.error("[Window] Failed to inject CSS:", err);
       });
 
@@ -285,7 +285,8 @@ export function createWindow(deps: WindowManagerDeps): BrowserWindow {
     // Force web app to use Electron's MCP config (overrides web app's IndexedDB cache)
     setTimeout(() => {
       mainWindow.webContents
-        .executeJavaScript(`
+        .executeJavaScript(
+          `
           (async () => {
             try {
               console.log('[MCP] Getting config from Electron main process...');
@@ -304,9 +305,10 @@ export function createWindow(deps: WindowManagerDeps): BrowserWindow {
               console.error('[MCP] Failed to sync config:', err);
             }
           })();
-        `)
-        .then(() => console.log('[Window] ✅ MCP config sync injected'))
-        .catch((err) => console.error('[Window] MCP sync failed:', err));
+        `,
+        )
+        .then(() => console.log("[Window] ✅ MCP config sync injected"))
+        .catch(err => console.error("[Window] MCP sync failed:", err));
     }, 3000);
   });
 
@@ -320,8 +322,53 @@ export function createWindow(deps: WindowManagerDeps): BrowserWindow {
     },
   );
 
+  // Detect parent_id errors and auto-recover by clearing IndexedDB + reload
+  mainWindow.webContents.on("console-message", (event, level, msg, line, sourceId) => {
+    // Detect "parent_id is not exist" error from chat.qwen.ai
+    if (
+      msg.includes("parent_id") &&
+      (msg.includes("is not exist") || msg.includes("Invalid input chat parent_id"))
+    ) {
+      console.log("[Window] ⚠️ parent_id error detected - initiating recovery...");
+
+      // Extract the invalid parent_id for logging
+      const parentMatch = msg.match(/parent_id\s+([a-f0-9-]+)/i);
+      const invalidId = parentMatch ? parentMatch[1] : "unknown";
+      console.log(`[Window] Invalid parent_id: ${invalidId}`);
+
+      // Clear IndexedDB to remove stale conversation state
+      session.defaultSession
+        .clearStorageData({
+          storages: ["indexdb", "localstorage"],
+        })
+        .then(() => {
+          console.log("[Window] ✅ IndexedDB cleared");
+
+          // Show toast notification in webview
+          mainWindow.webContents.executeJavaScript(`
+          (function() {
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#10a37f;color:white;padding:12px 24px;border-radius:8px;z-index:99999;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
+            toast.textContent = 'Session expired - refreshing...';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+          })();
+        `);
+
+          // Reload page with fresh session after short delay
+          setTimeout(() => {
+            console.log("[Window] 🔄 Reloading page with fresh session...");
+            mainWindow.reload();
+          }, 500);
+        })
+        .catch(err => {
+          console.error("[Window] ❌ Failed to clear IndexedDB:", err);
+        });
+    }
+  });
+
   // Close event: hide to tray instead of quitting
-  mainWindow.on("close", (event) => {
+  mainWindow.on("close", event => {
     if (!deps.isQuitting()) {
       console.log("[Window] Close event fired - hiding to tray");
       event.preventDefault();
@@ -330,10 +377,10 @@ export function createWindow(deps: WindowManagerDeps): BrowserWindow {
   });
 
   // Handle ALL popup windows for debugging
-  mainWindow.webContents.setWindowOpenHandler((details) => {
+  mainWindow.webContents.setWindowOpenHandler(details => {
     console.log("[POPUP] setWindowOpenHandler:", details.url);
     console.log("[POPUP] features:", details.features);
-    
+
     // If it's a qwen:// deep link, handle it directly
     if (details.url.startsWith("qwen://")) {
       console.log("[POPUP] ✅ Caught qwen:// from popup:", details.url);
@@ -358,7 +405,7 @@ export function createWindow(deps: WindowManagerDeps): BrowserWindow {
 
     if (isAuthUrl) {
       console.log("[POPUP] 🔐 Auth URL detected, opening in-app popup:", details.url);
-      
+
       const authWindow = new BrowserWindow({
         width: 500,
         height: 600,
@@ -383,10 +430,7 @@ export function createWindow(deps: WindowManagerDeps): BrowserWindow {
 
   // DevTools shortcut
   mainWindow.webContents.on("before-input-event", (event, input) => {
-    if (
-      input.key === "F12" ||
-      (input.control && input.shift && input.key === "I")
-    ) {
+    if (input.key === "F12" || (input.control && input.shift && input.key === "I")) {
       deps.onOpenDevTool(mainWindow);
       event.preventDefault();
     }
@@ -471,10 +515,7 @@ function getIconPath(): string | null {
 /**
  * Setup Linux system tray.
  */
-function setupSystemTray(
-  mainWindow: BrowserWindow,
-  deps: WindowManagerDeps,
-): Tray | null {
+function setupSystemTray(mainWindow: BrowserWindow, deps: WindowManagerDeps): Tray | null {
   console.log("[Tray] Setting up system tray...");
 
   const iconPath = getIconPath();

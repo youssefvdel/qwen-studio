@@ -38,10 +38,7 @@ export interface IpcHandlerDeps {
 export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   // === App Management ===
 
-  ipcMain.handle(
-    "get_app_version",
-    async (): Promise<string> => deps.APP_VERSION,
-  );
+  ipcMain.handle("get_app_version", async (): Promise<string> => deps.APP_VERSION);
 
   ipcMain.handle(
     "get_platform_info",
@@ -66,27 +63,21 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
     }
   });
 
-  ipcMain.handle(
-    "open_external_link",
-    async (_event, url: string): Promise<void> => {
-      const { shell } = await import("electron");
-      await shell.openExternal(url);
-    },
-  );
+  ipcMain.handle("open_external_link", async (_event, url: string): Promise<void> => {
+    const { shell } = await import("electron");
+    await shell.openExternal(url);
+  });
 
-  ipcMain.handle(
-    "show_native_dialog",
-    async (_event, options: DialogOptions): Promise<void> => {
-      const win = deps.getMainWindow();
-      await dialog.showMessageBox(win!, {
-        title: options.title || "Qwen",
-        message: options.message,
-        type: options.type || "info",
-        buttons: options.buttons || ["OK"],
-        defaultId: options.defaultId || 0,
-      });
-    },
-  );
+  ipcMain.handle("show_native_dialog", async (_event, options: DialogOptions): Promise<void> => {
+    const win = deps.getMainWindow();
+    await dialog.showMessageBox(win!, {
+      title: options.title || "Qwen",
+      message: options.message,
+      type: options.type || "info",
+      buttons: options.buttons || ["OK"],
+      defaultId: options.defaultId || 0,
+    });
+  });
 
   ipcMain.handle(
     "request_file_access",
@@ -124,17 +115,17 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
       console.log("[MCP CONNECT] Loading config...");
       const config = await deps.loadMcpConfig();
       console.log("[MCP CONNECT] Loaded config keys:", Object.keys(config));
-      
+
       if (Object.keys(config).length > 0) {
         console.log("[MCP CONNECT] Calling adaptConfig...");
         const adapted = deps.adaptConfig(config);
         console.log("[MCP CONNECT] Adapted config:", JSON.stringify(adapted, null, 2));
-        
+
         console.log("[MCP CONNECT] Calling setMCPServers...");
         await deps.mcpServer.setMCPServers(adapted);
         console.log("[MCP CONNECT] setMCPServers completed");
         console.log("[MCP CONNECT] MCP servers connected:", Object.keys(config));
-        
+
         // Notify UI to refresh MCP server list
         console.log("[MCP CONNECT] Sending mcp_servers_changed event...");
         const win = deps.getMainWindow();
@@ -169,7 +160,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
       const servers = deps.mcpServer.getMCPServers();
       console.log("[MCP TOOL LIST] Available servers:", Object.keys(servers));
       console.log("[MCP TOOL LIST] Server config for", serverName, ":", servers[serverName]);
-      
+
       console.log("\n[MCP TOOL LIST] Calling listTools...");
       const list = await deps.mcpServer.listTools({ serverName });
       console.log(`[MCP TOOL LIST] Tools returned:`, list?.tools?.length || 0, "tools");
@@ -205,10 +196,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
     async (_event, config: McpConfig): Promise<McpConfig> => {
       try {
         console.log("\n========== [MCP UPDATE CONFIG] START ==========");
-        console.log(
-          "[MCP UPDATE] Received config from UI:",
-          JSON.stringify(config, null, 2),
-        );
+        console.log("[MCP UPDATE] Received config from UI:", JSON.stringify(config, null, 2));
         console.log("[MCP UPDATE] Config keys:", Object.keys(config));
 
         for (const [name, serverConfig] of Object.entries(config)) {
@@ -236,7 +224,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
         console.log("\n[MCP UPDATE] Getting servers...");
         const result = deps.mcpServer.getMCPServers();
         console.log("[MCP UPDATE] getMCPServers returned:", Object.keys(result));
-        
+
         // Notify UI to refresh MCP server list
         console.log("\n[MCP UPDATE] Sending mcp_servers_changed event to UI...");
         const win = deps.getMainWindow();
@@ -249,7 +237,7 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
         } else {
           console.log("[MCP UPDATE] ⚠️ No main window found!");
         }
-        
+
         console.log("\n========== [MCP UPDATE CONFIG] END ==========\n");
         return result;
       } catch (error) {
@@ -263,29 +251,23 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
 
   // === Theme & Localization ===
 
-  ipcMain.handle(
-    "switch_theme",
-    async (_event, theme: "light" | "dark"): Promise<void> => {
-      // Theme is managed by account settings, don't persist locally
-      const win = deps.getMainWindow();
-      win?.webContents.send("event_from_main", {
-        type: "theme_changed",
-        payload: theme,
-      });
-    },
-  );
+  ipcMain.handle("switch_theme", async (_event, theme: "light" | "dark"): Promise<void> => {
+    // Theme is managed by account settings, don't persist locally
+    const win = deps.getMainWindow();
+    win?.webContents.send("event_from_main", {
+      type: "theme_changed",
+      payload: theme,
+    });
+  });
 
-  ipcMain.handle(
-    "switch_ln",
-    async (_event, language: string): Promise<void> => {
-      await deps.settings.set("app_language", language);
-      const win = deps.getMainWindow();
-      win?.webContents.send("event_from_main", {
-        type: "language_changed",
-        payload: language,
-      });
-    },
-  );
+  ipcMain.handle("switch_ln", async (_event, language: string): Promise<void> => {
+    await deps.settings.set("app_language", language);
+    const win = deps.getMainWindow();
+    win?.webContents.send("event_from_main", {
+      type: "language_changed",
+      payload: language,
+    });
+  });
 
   ipcMain.handle(
     "update_title_bar_for_system_theme",

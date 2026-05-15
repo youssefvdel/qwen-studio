@@ -17,11 +17,7 @@ import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js"
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import type {
-  McpServerConfig,
-  McpTool,
-  ToolCallParams,
-} from "../shared/types.js";
+import type { McpServerConfig, McpTool, ToolCallParams } from "../shared/types.js";
 
 /**
  * MCP Client wrapper for a single server
@@ -78,10 +74,7 @@ class McpServerClient {
         await this.transport.close();
       }
     } catch (error) {
-      console.error(
-        `[MCP] Error disconnecting from ${this.serverName}:`,
-        error,
-      );
+      console.error(`[MCP] Error disconnecting from ${this.serverName}:`, error);
     } finally {
       this.client = null;
       this.transport = null;
@@ -103,7 +96,7 @@ class McpServerClient {
     }
 
     const response = await this.client!.listTools();
-    this.tools = response.tools.map((tool) => ({
+    this.tools = response.tools.map(tool => ({
       name: tool.name,
       description: tool.description,
       inputSchema: tool.inputSchema as McpTool["inputSchema"],
@@ -141,18 +134,14 @@ class McpServerClient {
 
     if (transportType === "httpStream") {
       if (!config.url) {
-        throw new Error(
-          `[MCP] URL required for httpStream transport: ${this.serverName}`,
-        );
+        throw new Error(`[MCP] URL required for httpStream transport: ${this.serverName}`);
       }
       return new StreamableHTTPClientTransport(new URL(config.url));
     }
 
     if (transportType === "sse") {
       if (!config.url) {
-        throw new Error(
-          `[MCP] URL required for SSE transport: ${this.serverName}`,
-        );
+        throw new Error(`[MCP] URL required for SSE transport: ${this.serverName}`);
       }
       return new SSEClientTransport(new URL(config.url));
     }

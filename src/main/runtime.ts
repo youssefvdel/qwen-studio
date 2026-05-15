@@ -36,7 +36,8 @@ export function getRuntimePaths(): RuntimePaths {
   if (platform === "linux") {
     const archDir = arch === "arm64" ? "linux-arm64" : "linux-x64";
     const bunDir = arch === "arm64" ? "bun-linux-arm64" : "bun-linux-x64";
-    const uvDir = arch === "arm64" ? "uv-aarch64-unknown-linux-musl" : "uv-x86_64-unknown-linux-musl";
+    const uvDir =
+      arch === "arm64" ? "uv-aarch64-unknown-linux-musl" : "uv-x86_64-unknown-linux-musl";
     return {
       bun: app.isPackaged
         ? path.join(resourcesPath, "resources", "bun", archDir, bunDir, "bun")
@@ -109,8 +110,7 @@ export function getUvxPath(): string {
 export function checkRuntimeExists(runtimePath: string): boolean {
   try {
     return (
-      fs.existsSync(runtimePath) &&
-      fs.accessSync(runtimePath, fs.constants.X_OK) === undefined
+      fs.existsSync(runtimePath) && fs.accessSync(runtimePath, fs.constants.X_OK) === undefined
     );
   } catch {
     return false;
@@ -156,13 +156,9 @@ export function getPlatformName(): string {
 /**
  * Get platform directory name (for auto-updater, etc.)
  */
-export function getPlatformDir(
-  platform = process.platform,
-  arch = process.arch,
-): string {
+export function getPlatformDir(platform = process.platform, arch = process.arch): string {
   if (platform === "darwin") return arch === "arm64" ? "mac-arm64" : "mac-x64";
   if (platform === "win32") return "win-x64";
-  if (platform === "linux")
-    return arch === "arm64" ? "linux-arm64" : "linux-x64";
+  if (platform === "linux") return arch === "arm64" ? "linux-arm64" : "linux-x64";
   throw new Error(`Unsupported platform: ${platform}, arch: ${arch}`);
 }

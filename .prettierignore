@@ -1,0 +1,29 @@
+# Build outputs
+out/
+dist/
+build/
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Runtime files
+*.pid
+*.seed
+
+# Coverage
+coverage/
+*.lcov

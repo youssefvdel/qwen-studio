@@ -24,11 +24,7 @@ import { autoUpdater } from "electron-updater";
 import settings from "electron-settings";
 import { McpProxy } from "../mcp/proxy.js";
 import { adaptConfig } from "./mcp-config.js";
-import {
-  getPlatformName,
-  ensureRuntimesExecutable,
-  getBunPath,
-} from "./runtime.js";
+import { getPlatformName, ensureRuntimesExecutable, getBunPath } from "./runtime.js";
 import { setupAutoUpdater } from "./updater.js";
 import { createWindow } from "./window-manager.js";
 import { registerIpcHandlers, MCP_CONFIG_KEY } from "./ipc-handlers.js";
@@ -104,7 +100,7 @@ function getAppIcon(): Electron.NativeImage | undefined {
   for (const p of iconPaths) {
     try {
       if (fs.existsSync(p)) return nativeImage.createFromPath(p);
-    } catch { }
+    } catch {}
   }
   return undefined;
 }
@@ -119,22 +115,22 @@ function getAppIcon(): Electron.NativeImage | undefined {
 async function loadMcpConfig(): Promise<McpConfig> {
   try {
     const defaults = getDefaultMcpConfig();
-    
+
     if (await settings.has(MCP_CONFIG_KEY)) {
       const config = await settings.get(MCP_CONFIG_KEY);
       const parsed = (config as unknown as McpConfig) || {};
-      
+
       if (!parsed["qwen-core"]) {
         console.log("[Config] qwen-core missing, adding...");
         parsed["qwen-core"] = defaults["qwen-core"];
         await settings.set(MCP_CONFIG_KEY, parsed as any);
       }
-      
+
       if (Object.keys(parsed).length > 0) {
         return parsed;
       }
     }
-    
+
     console.log("[Config] No MCP config, creating defaults...");
     await settings.set(MCP_CONFIG_KEY, defaults as any);
     console.log("[Config] MCP servers:", Object.keys(defaults));
@@ -300,7 +296,10 @@ if (!gotLock) {
 }
 
 app.whenReady().then(async () => {
-  logger.info('🚀 Starting Qwen Studio for Linux', { platform: getPlatformName(), version: APP_VERSION });
+  logger.info("🚀 Starting Qwen Studio for Linux", {
+    platform: getPlatformName(),
+    version: APP_VERSION,
+  });
 
   try {
     // Make bundled runtimes executable (dev mode only)
@@ -318,8 +317,8 @@ app.whenReady().then(async () => {
 
     // Setup protocol handler (qwen:// deep links)
     setupProtocolHandler({
-      onDeepLink: (url) => handleDeepLink(url, mainWindow),
-      enqueueDeepLink: (url) => {
+      onDeepLink: url => handleDeepLink(url, mainWindow),
+      enqueueDeepLink: url => {
         console.log("[App] Enqueuing deep link:", url);
         deepLinkQueue.push(url);
       },
@@ -330,11 +329,10 @@ app.whenReady().then(async () => {
         } else {
           mainWindow = createWindow({
             onMcpClientConnect: mcpClientConnect,
-            onOpenDevTool: (win) =>
-              win.webContents.openDevTools({ mode: "right" }),
+            onOpenDevTool: win => win.webContents.openDevTools({ mode: "right" }),
             setQuitting,
             isQuitting,
-            onDeepLink: (url) => handleDeepLink(url, mainWindow),
+            onDeepLink: url => handleDeepLink(url, mainWindow),
           });
         }
       },
@@ -359,26 +357,26 @@ app.whenReady().then(async () => {
     // Create main window (loads chat.qwen.ai with MCP bridge)
     mainWindow = createWindow({
       onMcpClientConnect: mcpClientConnect,
-      onOpenDevTool: (win) => win.webContents.openDevTools({ mode: "right" }),
+      onOpenDevTool: win => win.webContents.openDevTools({ mode: "right" }),
       setQuitting,
       isQuitting,
-      onDeepLink: (url) => handleDeepLink(url, mainWindow),
+      onDeepLink: url => handleDeepLink(url, mainWindow),
     });
 
     // Build menu after window creation (so skills menu can populate)
     await setupMenu();
 
     console.log("[App] ✅ Window created successfully");
-    
+
     // Process any queued deep links
     processDeepLinkQueue();
 
     // Linux: Handle second instance (prevent multiple windows from qwen:// links)
     app.on("second-instance", (_event, commandLine) => {
       console.log("[App] Second instance detected, focusing existing window");
-      
+
       // Check for qwen:// URL in command line
-      const url = commandLine.find((arg) => arg.startsWith("qwen://"));
+      const url = commandLine.find(arg => arg.startsWith("qwen://"));
       if (url) {
         console.log("[App] Deep link in second instance:", url);
         // Queue it if window not ready, or handle immediately
@@ -388,7 +386,7 @@ app.whenReady().then(async () => {
           deepLinkQueue.push(url);
         }
       }
-      
+
       // Focus existing window
       if (mainWindow) {
         if (mainWindow.isMinimized()) mainWindow.restore();
@@ -401,11 +399,10 @@ app.whenReady().then(async () => {
       if (BrowserWindow.getAllWindows().length === 0) {
         mainWindow = createWindow({
           onMcpClientConnect: mcpClientConnect,
-          onOpenDevTool: (win) =>
-            win.webContents.openDevTools({ mode: "right" }),
+          onOpenDevTool: win => win.webContents.openDevTools({ mode: "right" }),
           setQuitting,
           isQuitting,
-          onDeepLink: (url) => handleDeepLink(url, mainWindow),
+          onDeepLink: url => handleDeepLink(url, mainWindow),
         });
       }
     });
@@ -415,10 +412,10 @@ app.whenReady().then(async () => {
     setTimeout(() => {
       mainWindow = createWindow({
         onMcpClientConnect: mcpClientConnect,
-        onOpenDevTool: (win) => win.webContents.openDevTools({ mode: "right" }),
+        onOpenDevTool: win => win.webContents.openDevTools({ mode: "right" }),
         setQuitting,
         isQuitting,
-        onDeepLink: (url) => handleDeepLink(url, mainWindow),
+        onDeepLink: url => handleDeepLink(url, mainWindow),
       });
     }, 1000);
   }
@@ -437,14 +434,14 @@ app.on("window-all-closed", () => {
 
 // Before quit: disconnect all MCP servers
 app.on("before-quit", () => {
-  mcpServer.disconnectAll().catch(() => { });
+  mcpServer.disconnectAll().catch(() => {});
 });
 
 // Global error handlers
-process.on("uncaughtException", (error) => {
+process.on("uncaughtException", error => {
   console.error("[App] Uncaught exception:", error);
 });
 
-process.on("unhandledRejection", (reason) => {
+process.on("unhandledRejection", reason => {
   console.error("[App] Unhandled rejection:", reason);
 });
