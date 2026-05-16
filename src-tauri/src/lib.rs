@@ -54,11 +54,11 @@ pub fn run() {
                 // Wait for page to fully load
                 tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
                 
-                log::info!("[MCP] Injecting qwen-core into web app IndexedDB...");
+                log::info!("[MCP] Aggressive IndexedDB injection...");
                 let inject_script = r#"
                     (async () => {
                         try {
-                            console.log('[MCP] Starting IndexedDB injection...');
+                            console.log('[MCP] === Starting aggressive IndexedDB injection ===');
                             
                             const qwenCoreConfig = {
                                 command: "npx",
@@ -70,55 +70,124 @@ pub fn run() {
                                 env: {}
                             };
                             
-                            // Try to open common MCP databases and inject qwen-core
-                            const dbNames = ['mcp', 'MCP', 'mcp-config', 'mcpConfig', 'mcp_config', 'qwen-mcp', 'qwen', 'config', 'settings', 'electron-settings'];
-                            
-                            for (const dbName of dbNames) {
-                                try {
-                                    const db = await new Promise((resolve, reject) => {
-                                        const req = indexedDB.open(dbName);
-                                        req.onsuccess = () => resolve(req.result);
-                                        req.onerror = () => reject(req.error);
-                                    });
+                            // Step 1: Enumerate ALL IndexedDB databases
+                            if (window.indexedDB && window.indexedDB.databases) {
+                                const dbs = await window.indexedDB.databases();
+                                console.log('[MCP] Found', dbs.length, 'IndexedDB databases:', dbs.map(d => d.name));
+                                
+                                for (const dbInfo of dbs) {
+                                    const dbName = dbInfo.name;
+                                    if (!dbName) continue;
                                     
-                                    console.log('[MCP] Opened database:', dbName, 'stores:', Array.from(db.objectStoreNames));
-                                    
-                                    for (const storeName of db.objectStoreNames) {
-                                        try {
-                                            const tx = db.transaction(storeName, 'readwrite');
-                                            const store = tx.objectStore(storeName);
-                                            
-                                            // Try to add qwen-core config
-                                            store.put({ name: 'qwen-core', config: qwenCoreConfig, enabled: true }, 'qwen-core');
-                                            console.log('[MCP] Added qwen-core to', dbName, '/', storeName);
-                                        } catch (e) {
-                                            console.log('[MCP] Failed to add to', storeName, ':', e.message);
+                                    try {
+                                        const db = await new Promise((resolve, reject) => {
+                                            const req = indexedDB.open(dbName);
+                                            req.onsuccess = () => resolve(req.result);
+                                            req.onerror = () => reject(req.error);
+                                        });
+                                        
+                                        console.log('[MCP] Database:', dbName, 'version:', db.version, 'stores:', Array.from(db.objectStoreNames));
+                                        
+                                        for (const storeName of db.objectStoreNames) {
+                                            try {
+                                                const tx = db.transaction(storeName, 'readwrite');
+                                                const store = tx.objectStore(storeName);
+                                                
+                                                // Get all keys to understand structure
+                                                const keys = await new Promise((resolve, reject) => {
+                                                    const req = store.getAllKeys();
+                                                    req.onsuccess = () => resolve(req.result);
+                                                    req.onerror = () => reject(req.error);
+                                                });
+                                                console.log('[MCP] Store', storeName, 'keys:', keys);
+                                                
+                                                // Try multiple injection patterns
+                                                const injections = [
+                                                    { key: 'qwen-core', value: qwenCoreConfig },
+                                                    { key: 'qwen-core', value: { ...qwenCoreConfig, enabled: true } },
+                                                    { key: 'mcpServers', value: { 'qwen-core': qwenCoreConfig } },
+                                                    { key: 'mcp_config', value: { 'qwen-core': qwenCoreConfig } },
+                                                    { key: 'config', value: { mcpServers: { 'qwen-core': qwenCoreConfig } } },
+                                                ];
+                                                
+                                                for (const inj of injections) {
+                                                    try {
+                                                        store.put(inj.value, inj.key);
+                                                        console.log('[MCP] Injected into', dbName, '/', storeName, 'key:', inj.key);
+                                                    } catch (e) {
+                                                        // Key might not exist, try add
+                                                    }
+                                                }
+                                                
+                                                await new Promise((resolve, reject) => {
+                                                    tx.oncomplete = () => resolve();
+                                                    tx.onerror = () => reject(tx.error);
+                                                });
+                                            } catch (e) {
+                                                console.log('[MCP] Failed store', storeName, ':', e.message);
+                                            }
                                         }
+                                    } catch (e) {
+                                        console.log('[MCP] Failed database', dbName, ':', e.message);
                                     }
-                                } catch (e) {
-                                    // Database doesn't exist, skip
                                 }
                             }
                             
-                            // Also try to set in localStorage
+                            // Step 2: Try to create new MCP database
                             try {
-                                const mcpConfig = localStorage.getItem('mcp_config') || '{}';
-                                const parsed = JSON.parse(mcpConfig);
-                                parsed['qwen-core'] = qwenCoreConfig;
-                                localStorage.setItem('mcp_config', JSON.stringify(parsed));
-                                console.log('[MCP] Set qwen-core in localStorage mcp_config');
+                                const newDb = await new Promise((resolve, reject) => {
+                                    const req = indexedDB.open('mcp-config', 1);
+                                    req.onupgradeneeded = (event) => {
+                                        const db = event.target.result;
+                                        if (!db.objectStoreNames.contains('servers')) {
+                                            db.createObjectStore('servers');
+                                        }
+                                        if (!db.objectStoreNames.contains('config')) {
+                                            db.createObjectStore('config');
+                                        }
+                                    };
+                                    req.onsuccess = () => resolve(req.result);
+                                    req.onerror = () => reject(req.error);
+                                });
+                                
+                                const tx = newDb.transaction(['servers', 'config'], 'readwrite');
+                                tx.objectStore('servers').put(qwenCoreConfig, 'qwen-core');
+                                tx.objectStore('config').put({ 'qwen-core': qwenCoreConfig }, 'mcpServers');
+                                console.log('[MCP] Created new mcp-config database with qwen-core');
                             } catch (e) {
-                                console.log('[MCP] localStorage mcp_config failed:', e.message);
+                                console.log('[MCP] Failed to create new database:', e.message);
                             }
                             
-                            // Dispatch events
-                            const tauriConfig = await window.electronAPI.mcp_client_get_config();
-                            for (let i = 0; i < 5; i++) {
-                                window.dispatchEvent(new CustomEvent('mcp-config-changed', { detail: tauriConfig }));
-                                await new Promise(r => setTimeout(r, 300));
+                            // Step 3: Set in localStorage with multiple keys
+                            const localStorageKeys = ['mcp_config', 'mcpConfig', 'mcp-config', 'mcpServers', 'mcp_servers', 'electron-settings', 'settings'];
+                            for (const key of localStorageKeys) {
+                                try {
+                                    const existing = localStorage.getItem(key);
+                                    let parsed = existing ? JSON.parse(existing) : {};
+                                    
+                                    // Handle different structures
+                                    if (parsed.mcpServers) {
+                                        parsed.mcpServers['qwen-core'] = qwenCoreConfig;
+                                    } else if (parsed.servers) {
+                                        parsed.servers['qwen-core'] = qwenCoreConfig;
+                                    } else {
+                                        parsed['qwen-core'] = qwenCoreConfig;
+                                    }
+                                    
+                                    localStorage.setItem(key, JSON.stringify(parsed));
+                                    console.log('[MCP] Set qwen-core in localStorage:', key);
+                                } catch (e) {
+                                    console.log('[MCP] Failed localStorage', key, ':', e.message);
+                                }
                             }
                             
-                            console.log('[MCP] Injection complete');
+                            console.log('[MCP] === Injection complete, reloading page ===');
+                            
+                            // Step 4: Reload page so web app picks up changes
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1000);
+                            
                         } catch (e) {
                             console.error('[MCP] Injection failed:', e);
                         }
@@ -128,7 +197,7 @@ pub fn run() {
                 if let Err(e) = window_handle.eval(inject_script) {
                     log::warn!("[MCP] Failed to inject qwen-core: {}", e);
                 } else {
-                    log::info!("[MCP] qwen-core injection script executed");
+                    log::info!("[MCP] Aggressive injection script executed");
                 }
                 
                 tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
