@@ -21,7 +21,6 @@ import {
 import path from "path";
 import fs from "fs";
 import { autoUpdater } from "electron-updater";
-import settings from "electron-settings";
 import { McpProxy } from "../mcp/proxy.js";
 import { adaptConfig } from "./mcp-config.js";
 import { getPlatformName, ensureRuntimesExecutable, getBunPath } from "./runtime.js";
@@ -29,6 +28,7 @@ import { setupAutoUpdater } from "./updater.js";
 import { createWindow } from "./window-manager.js";
 import { registerIpcHandlers, MCP_CONFIG_KEY } from "./ipc-handlers.js";
 import { logger } from "./logger.js";
+import { getSettings, setSettings, hasSetting } from "./settings.js";
 import {
   ensureSkillsDir,
   getAvailableSkills,
@@ -44,7 +44,7 @@ import {
   setQuitting,
 } from "./app-lifecycle.js";
 import type { McpConfig } from "../shared/types.js";
-import { getQwenCorePath, getDefaultQwenCoreConfig } from "./mcp-config.js";
+import { getDefaultQwenCoreConfig } from "./mcp-config.js";
 
 // === Constants ===
 const APP_VERSION = app.getVersion();
@@ -108,54 +108,53 @@ function getAppIcon(): Electron.NativeImage | undefined {
 // === MCP Config Management ===
 
 /**
- * Load MCP config from electron-settings.
- * Uses standard MCP format: { mcpServers: {...} }
+ * Load MCP config from settings.json.
  * Always ensures qwen-core is present.
+ * Removes broken Filesystem server (qwen-core has all file tools).
  */
 async function loadMcpConfig(): Promise<McpConfig> {
   try {
     const defaults = getDefaultMcpConfig();
+    const settings = await getSettings();
+    const config = settings[MCP_CONFIG_KEY] || {};
+    let changed = false;
 
-    if (await settings.has(MCP_CONFIG_KEY)) {
-      const config = await settings.get(MCP_CONFIG_KEY);
-      const parsed = (config as unknown as McpConfig) || {};
-
-      if (!parsed["qwen-core"]) {
-        console.log("[Config] qwen-core missing, adding...");
-        parsed["qwen-core"] = defaults["qwen-core"];
-        await settings.set(MCP_CONFIG_KEY, parsed as any);
-      }
-
-      if (Object.keys(parsed).length > 0) {
-        return parsed;
-      }
+    // Ensure qwen-core is present
+    if (!config["qwen-core"]) {
+      console.log("[Config] qwen-core missing, adding...");
+      config["qwen-core"] = defaults["qwen-core"];
+      changed = true;
     }
 
-    console.log("[Config] No MCP config, creating defaults...");
-    await settings.set(MCP_CONFIG_KEY, defaults as any);
-    console.log("[Config] MCP servers:", Object.keys(defaults));
-    return defaults;
+    // Remove broken Filesystem server (qwen-core has all file tools)
+    if (config["Filesystem"]) {
+      console.log("[Config] Removing broken Filesystem server (use qwen-core instead)...");
+      delete config["Filesystem"];
+      changed = true;
+    }
+
+    if (changed) {
+      settings[MCP_CONFIG_KEY] = config;
+      await setSettings(settings);
+    }
+
+    if (Object.keys(config).length > 0) {
+      return config;
+    }
   } catch (error) {
     console.error("[Config] Failed to load MCP config:", error);
   }
-  return {};
+  return getDefaultMcpConfig();
 }
 
 /**
  * Default MCP server configuration for first-time users.
- * Uses standard MCP format: { mcpServers: {...} }
- * qwen-core is the primary MCP server with 40 tools including:
- * - Filesystem operations (read, write, list, search, delete)
- * - Web access (fetch, search)
- * - Git operations (status, diff, commit, add, log)
- * - System commands (execute, processes)
- * - Time operations, PDF reading, and more
+ * qwen-core is installed as an npm dependency.
+ * qwen-core includes all filesystem tools — no separate server needed.
  */
 function getDefaultMcpConfig(): McpConfig {
   return {
     "qwen-core": getDefaultQwenCoreConfig(),
-    // Note: All other tools now integrated into qwen-core v2.0+
-    // No need for separate filesystem, fetch, or desktop-commander servers
   };
 }
 
@@ -343,7 +342,6 @@ app.whenReady().then(async () => {
       getMainWindow,
       mcpServer,
       adaptConfig,
-      settings,
       loadMcpConfig,
       getDefaultMcpConfig,
       APP_VERSION,

@@ -1,0 +1,9 @@
+type: object
+required: [type, occurred_at, summary]
+properties:
+  type:        { const: event }
+  occurred_at: { type: string, format: date-time }
+  summary:     { type: string }
+  entities:    { type: array, items: { type: string } }
+  kind:        { enum: [conversation, decision, action, observation] }
+  sources:     { type: array, items: { type: string } }

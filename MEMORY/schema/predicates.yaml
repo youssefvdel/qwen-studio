@@ -1,0 +1,33 @@
+# Controlled Predicates for qwen-studio
+
+**Version:** 1.0  
+**Last Updated:** 2026-05-15
+
+This file defines the allowed predicates (relationship types) for facts in this MEMORY vault.
+
+## Core Predicates
+
+| Predicate | Applies To | Value Type | Description |
+|-----------|------------|------------|-------------|
+| `version` | tools, projects | string | Software version (semver) |
+| `architecture` | tools, systems | string | Architecture description |
+| `url` | services, tools | string | Endpoint URL |
+| `score` | audits, metrics | string | Score or rating |
+| `status` | anything | string | Current state |
+| `location` | anything | string | File/directory path |
+| `owner` | projects, files | string | Responsible person/team |
+| `depends_on` | tools, features | string | Dependency reference |
+| `description` | anything | string | Brief description |
+| `documented_in` | anything | string | Documentation file path |
+
+## Adding New Predicates
+
+To add a new predicate:
+
+1. Add to this file with description
+2. Use consistently in `facts/`
+3. Update `MEMORY/entities.md` if needed
+
+---
+
+*Controlled vocabulary. Changes require documentation update.*

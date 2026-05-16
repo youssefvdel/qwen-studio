@@ -1,0 +1,27 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default capabilities for Qwen Studio",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["https://*.qwen.ai", "https://chat.qwen.ai"]
+  },
+  "permissions": [
+    "core:default",
+    "core:window:allow-minimize",
+    "core:window:allow-maximize",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "core:webview:allow-internal-toggle-devtools",
+    "shell:allow-open",
+    "dialog:default",
+    "fs:default",
+    "store:default",
+    "mcp-client-connect",
+    "mcp-client-close",
+    "mcp-client-tool-list",
+    "mcp-client-tool-call",
+    "mcp-client-get-config",
+    "mcp-client-update-config"
+  ]
+}

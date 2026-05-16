@@ -1,0 +1,52 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Qwen Studio",
+  "version": "2.2.0",
+  "identifier": "com.qwen.studio",
+  "build": {
+    "frontendDist": "../src/renderer"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "resources": [
+      "mcp-proxy-server.js",
+      "../node_modules/@ali/spark-mcp/**/*",
+      "../node_modules/@modelcontextprotocol/sdk/**/*",
+      "../node_modules/express/**/*",
+      "../node_modules/cors/**/*",
+      "../node_modules/body-parser/**/*"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "linux": {
+      "deb": {
+        "depends": ["webkit2gtk-4.1"],
+        "desktopTemplate": "../../qwen-studio.desktop"
+      },
+      "rpm": {
+        "depends": ["webkit2gtk4.1"],
+        "desktopTemplate": "../../qwen-studio.desktop"
+      }
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "mobile": [],
+      "desktop": {
+        "schemes": ["qwen"]
+      }
+    }
+  }
+}

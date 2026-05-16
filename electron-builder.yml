@@ -47,19 +47,6 @@ extraResources:
     to: "resources/uv"
   - from: "resources/icon.png"
     to: "icon.png"
-  - from: "qwen-core"
-    to: "qwen-core"
-    filter: [
-      "src/**/*",
-      "package.json",
-      "skills/**/*",
-      ".qwenrules",
-      "!*.md",
-      "!.git/**/*",
-      "!node_modules/**/*",
-      "!dist/**/*",
-      "!out/**/*"
-    ]
 
 directories:
   output: "dist"

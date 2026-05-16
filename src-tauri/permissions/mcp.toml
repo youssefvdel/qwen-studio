@@ -1,0 +1,29 @@
+[[permission]]
+identifier = "mcp-client-connect"
+description = "Allow connecting to MCP servers"
+commands.allow = ["mcp_client_connect"]
+
+[[permission]]
+identifier = "mcp-client-close"
+description = "Allow closing MCP connections"
+commands.allow = ["mcp_client_close"]
+
+[[permission]]
+identifier = "mcp-client-tool-list"
+description = "Allow listing MCP tools"
+commands.allow = ["mcp_client_tool_list"]
+
+[[permission]]
+identifier = "mcp-client-tool-call"
+description = "Allow calling MCP tools"
+commands.allow = ["mcp_client_tool_call"]
+
+[[permission]]
+identifier = "mcp-client-get-config"
+description = "Allow getting MCP configuration"
+commands.allow = ["mcp_client_get_config"]
+
+[[permission]]
+identifier = "mcp-client-update-config"
+description = "Allow updating MCP configuration"
+commands.allow = ["mcp_client_update_config"]

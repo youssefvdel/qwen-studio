@@ -14,8 +14,9 @@
 import { ipcMain, dialog, BrowserWindow } from "electron";
 import type { McpProxy } from "../mcp/proxy.js";
 import type { McpConfig, DialogOptions } from "../shared/types.js";
+import { getSettings, setSettings } from "./settings.js";
 
-/** Settings key for MCP config in electron-settings */
+/** Settings key for MCP config in settings.json */
 export const MCP_CONFIG_KEY = "mcpServers";
 
 /**
@@ -26,7 +27,6 @@ export interface IpcHandlerDeps {
   getMainWindow: () => BrowserWindow | null;
   mcpServer: McpProxy;
   adaptConfig: (config: McpConfig) => McpConfig;
-  settings: typeof import("electron-settings");
   loadMcpConfig: () => Promise<McpConfig>;
   getDefaultMcpConfig: () => McpConfig;
   APP_VERSION: string;
@@ -217,25 +217,25 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
         await deps.mcpServer.setMCPServers(adapted);
         console.log("[MCP UPDATE] setMCPServers completed");
 
-        console.log("\n[MCP UPDATE] Saving to settings...");
-        await deps.settings.set(MCP_CONFIG_KEY, config as any);
-        console.log("[MCP UPDATE] Settings saved");
+        console.log("\n[MCP UPDATE] Merging with existing settings...");
+        const settings = await getSettings();
+        const existing = settings[MCP_CONFIG_KEY] || {};
+        // Merge: keep existing servers, add/update new ones
+        settings[MCP_CONFIG_KEY] = { ...existing, ...config };
+        await setSettings(settings);
+        console.log("[MCP UPDATE] Settings saved with merged config");
 
         console.log("\n[MCP UPDATE] Getting servers...");
         const result = deps.mcpServer.getMCPServers();
         console.log("[MCP UPDATE] getMCPServers returned:", Object.keys(result));
 
-        // Notify UI to refresh MCP server list
-        console.log("\n[MCP UPDATE] Sending mcp_servers_changed event to UI...");
         const win = deps.getMainWindow();
         if (win) {
           win.webContents.send("event_from_main", {
             type: "mcp_servers_changed",
-            payload: { servers: Object.keys(config) },
+            payload: { servers: Object.keys(settings[MCP_CONFIG_KEY]) },
           });
           console.log("[MCP UPDATE] Event sent to UI");
-        } else {
-          console.log("[MCP UPDATE] ⚠️ No main window found!");
         }
 
         console.log("\n========== [MCP UPDATE CONFIG] END ==========\n");
@@ -261,7 +261,9 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): void {
   });
 
   ipcMain.handle("switch_ln", async (_event, language: string): Promise<void> => {
-    await deps.settings.set("app_language", language);
+    const settings = await getSettings();
+    settings["app_language"] = language;
+    await setSettings(settings);
     const win = deps.getMainWindow();
     win?.webContents.send("event_from_main", {
       type: "language_changed",

@@ -1,0 +1,11 @@
+type: object
+required: [type, id, date, decision]
+properties:
+  type:        { const: decision }
+  id:          { type: string, pattern: "^DEC-[0-9]{8}-[0-9]{3}$" }
+  date:        { type: string, format: date }
+  context:     { type: string }
+  decision:    { type: string }
+  rationale:   { type: string }
+  alternatives:{ type: string }
+  consequences:{ type: string }

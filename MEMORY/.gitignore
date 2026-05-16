@@ -1,0 +1,10 @@
+# MEMORY folder
+MEMORY/_inbox/
+MEMORY/_ops/
+MEMORY/_claims/
+MEMORY/_views/
+MEMORY/_archive/
+
+# Python cache
+__pycache__/
+*.py[cod]

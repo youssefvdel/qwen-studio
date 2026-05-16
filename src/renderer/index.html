@@ -2,277 +2,76 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval'; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src * 'unsafe-inline'; img-src * data: blob: 'unsafe-inline'; frame-src *; style-src * 'unsafe-inline';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
-  <title>Qwen</title>
+  <title>Qwen Studio</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    html, body {
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #ffffff;
-    }
-
-    /* Loading screen */
-    #loading-screen {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      z-index: 9999;
-      transition: opacity 0.3s ease;
-    }
-
-    #loading-screen.fade-out {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .loading-logo {
-      width: 80px;
-      height: 80px;
-      background: white;
-      border-radius: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 40px;
-      font-weight: bold;
-      color: #667eea;
-      margin-bottom: 24px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    }
-
-    .loading-text {
-      color: white;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-      font-size: 18px;
-      font-weight: 500;
-      letter-spacing: 0.5px;
-    }
-
-    .loading-spinner {
-      width: 32px;
-      height: 32px;
-      border: 3px solid rgba(255, 255, 255, 0.3);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin-top: 24px;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    /* WebView container */
-    #webview-container {
-      width: 100%;
-      height: 100%;
-    }
-
-    webview {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-
-    /* Dark mode support */
-    @media (prefers-color-scheme: dark) {
-      html, body {
-        background: #1a1a1a;
-      }
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0f0f0f; }
+    #loading { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); z-index: 9999; }
+    #loading.fade-out { opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+    .logo { width: 80px; height: 80px; background: white; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: bold; color: #667eea; margin-bottom: 24px; }
+    .text { color: white; font-family: system-ui, sans-serif; font-size: 18px; }
+    .spinner { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin-top: 24px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
-  <!-- Loading Screen -->
-  <div id="loading-screen">
-    <div class="loading-logo">Q</div>
-    <div class="loading-text">Loading Qwen...</div>
-    <div class="loading-spinner"></div>
+  <div id="loading">
+    <div class="logo">Q</div>
+    <div class="text">Loading Qwen Studio...</div>
+    <div class="spinner"></div>
   </div>
 
-  <!-- WebView Container -->
-  <div id="webview-container"></div>
+  <script type="module">
+    const { invoke } = window.__TAURI__.core;
+    const { getCurrentWindow } = window.__TAURI__.window;
+    const { listen } = window.__TAURI__.event;
 
-  <script>
-    const { ipcRenderer } = require('electron');
+    async function init() {
+      try {
+        const version = await invoke('get_app_version');
+        console.log('[Tauri] Qwen Studio v' + version);
 
-    // WebView configuration
-    const WEBVIEW_URL = 'https://chat.qwen.ai';
+        const info = await invoke('get_platform_info');
+        console.log('[Tauri] Platform:', info.platform, info.arch);
 
-    /**
-     * Create and configure the webview
-     */
-    async function createWebview() {
-      const container = document.getElementById('webview-container');
+        // Test MCP connect immediately
+        console.log('[Tauri] Testing MCP connect...');
+        try {
+          await invoke('mcp_client_connect');
+          console.log('[Tauri] MCP connect OK');
+        } catch (e) {
+          console.error('[Tauri] MCP connect failed:', e);
+        }
 
-      // Create webview element
-      const webview = document.createElement('webview');
-      webview.setAttribute('src', WEBVIEW_URL);
-      webview.setAttribute('webpreferences', 'nodeIntegrationInSubFrames=true, sandbox=false');
-      webview.setAttribute('allowpopups', 'true');
-      webview.setAttribute('disablewebsecurity', 'true');
-
-      // Handle webview events
-      webview.addEventListener('dom-ready', () => {
-        console.log('[Renderer] WebView DOM ready');
-
-        // Hide loading screen
-        const loadingScreen = document.getElementById('loading-screen');
-        loadingScreen.classList.add('fade-out');
-        setTimeout(() => loadingScreen.remove(), 300);
-
-        // Notify main process
-        ipcRenderer.invoke('webview-loaded');
-
-        // Get platform info for logging
-        window.electronAPI.get_platform_info().then((info) => {
-          console.log('[Renderer] Platform:', info.platform, info.arch);
+        listen('event_from_main', (event) => {
+          const { type, payload } = event.payload;
+          if (type === 'set_cookie') {
+            handleAuthCookie(payload);
+          }
         });
-      });
 
-      webview.addEventListener('did-fail-load', (event) => {
-        console.error('[Renderer] WebView failed to load:', event);
-      });
+        // Navigate to remote URL after bridge is ready
+        console.log('[Tauri] Navigating to chat.qwen.ai...');
+        window.location.href = 'https://chat.qwen.ai';
 
-      webview.addEventListener('did-finish-load', () => {
-        console.log('[Renderer] WebView finished loading');
-      });
-
-      // Easter egg: DevTools toggle (like official app)
-      let keySequence = [];
-      let lastKeyTime = 0;
-
-      webview.addEventListener('ipc-message', (event) => {
-        if (event.channel === 'EASTER_EGG_ACTIVATED') {
-          ipcRenderer.invoke('toggle_hidden_devtools');
-        }
-      });
-
-      // Inject key sequence detector into webview
-      webview.addEventListener('dom-ready', () => {
-        const easterEggScript = `
-          (function() {
-            let keySequence = [];
-            let lastKeyTime = 0;
-            document.addEventListener('keydown', function(event) {
-              const now = Date.now();
-              const key = event.key;
-              if (now - lastKeyTime > 3000) {
-                keySequence = [key];
-                lastKeyTime = now;
-                return;
-              }
-              keySequence.push(key);
-              lastKeyTime = now;
-              if (keySequence.length > 11) keySequence.shift();
-              if (keySequence.join('') === 'woshi149205') {
-                const { ipcRenderer } = require('electron');
-                ipcRenderer.sendToHost('EASTER_EGG_ACTIVATED');
-                keySequence = [];
-              }
-            }, true);
-          })();
-        `;
-        webview.executeJavaScript(easterEggScript).catch(console.error);
-      });
-
-      // Load webview preload script
-      webview.addEventListener('dom-ready', () => {
-        const preloadPath = window.electronAPI.PRELOAD_FILE_PATH;
-        if (preloadPath) {
-          webview.setAttribute('preload', `file://${preloadPath}`);
-        }
-      });
-
-      container.appendChild(webview);
+        document.getElementById('loading').classList.add('fade-out');
+        setTimeout(() => document.getElementById('loading').remove(), 300);
+      } catch (error) {
+        console.error('[Tauri] Init error:', error);
+        document.getElementById('loading').innerHTML = '<div class="text" style="color:white;text-align:center;padding:20px;">Error: ' + error.message + '</div>';
+      }
     }
 
-    // Handle system theme changes
-    window.electronAPI.on_event('system_theme_changed', (isDark) => {
-      document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-    });
+    async function handleAuthCookie(token) {
+      if (!token) return;
+      const url = new URL('https://chat.qwen.ai');
+      url.searchParams.set('_tauri_auth', token);
+      window.location.href = url.toString();
+    }
 
-    // Handle auth token from deep link (Windows app uses "set_cookie" event)
-    window.electronAPI.on_event('set_cookie', async (token) => {
-      console.log('[Renderer] Received set_cookie event, token length:', token?.length);
-      
-      if (token) {
-        const webview = document.querySelector('webview');
-        if (webview) {
-          console.log('[Renderer] Setting auth cookie in webview...');
-          
-          // Set cookies for chat.qwen.ai domain
-          const setCookieScript = `
-            (function() {
-              try {
-                const token = '${token}';
-                
-                // Set cookies for all possible domains
-                const domains = ['.qwen.ai', 'chat.qwen.ai', 'qwen.ai'];
-                for (const domain of domains) {
-                  document.cookie = 'token=' + token + '; domain=' + domain + '; path=/; secure; samesite=lax';
-                  document.cookie = 'auth_token=' + token + '; domain=' + domain + '; path=/; secure; samesite=lax';
-                  document.cookie = 'accessToken=' + token + '; domain=' + domain + '; path=/; secure; samesite=lax';
-                }
-                console.log('[Inject] Auth cookies set for all domains');
-                
-                // Also set in localStorage as backup
-                localStorage.setItem('qwen_auth_token', token);
-                localStorage.setItem('token', token);
-                localStorage.setItem('accessToken', token);
-                console.log('[Inject] LocalStorage set');
-                
-                return 'cookies_set';
-              } catch (e) {
-                console.error('[Inject] Failed to set auth:', e);
-                return 'error: ' + e.message;
-              }
-            })();
-          `;
-          
-          try {
-            const result = await webview.executeJavaScript(setCookieScript);
-            console.log('[Renderer] Cookie injection result:', result);
-            
-            // Navigate to chat.qwen.ai to apply the session
-            console.log('[Renderer] Navigating to chat.qwen.ai...');
-            webview.src = 'https://chat.qwen.ai';
-          } catch (err) {
-            console.error('[Renderer] Failed to inject cookie:', err);
-          }
-        }
-      }
-    });
-
-    // Handle auth token from deep link (also support "auth_token" event)
-    window.electronAPI.on_event('auth_token', async (data) => {
-      console.log('[Renderer] Received auth_token event:', data?.token ? 'token present' : 'no token');
-      
-      if (data?.token) {
-        // Reuse the set_cookie handler
-        window.electronAPI.emit('set_cookie', data.token);
-      }
-    });
-
-    // Initialize
-    createWebview().catch((error) => {
-      console.error('[Renderer] Failed to create webview:', error);
-    });
+    init();
   </script>
 </body>
 </html>
