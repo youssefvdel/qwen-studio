@@ -68,17 +68,36 @@ pub struct Bridge {
 
 impl Bridge {
     async fn new() -> Result<Self> {
-        let bridge_path = concat!(env!("CARGO_MANIFEST_DIR"), "/mcp-bridge.mjs");
+        let bridge_path = resolve_bridge_path();
 
+        // Snapshot the environment the bridge will inherit: a GUI-launched app
+        // and a shell-launched one can have very different PATHs, and "npx not
+        // found" / "node not found" are the first suspects when every MCP
+        // server comes up red.
+        if let Ok(path) = std::env::var("PATH") {
+            let interesting: Vec<&str> = path
+                .split(';')
+                .filter(|p| {
+                    let l = p.to_lowercase();
+                    l.contains("node") || l.contains("npm") || l.contains("cargo") || l.contains("uv")
+                })
+                .collect();
+            log::info!("[Bridge] PATH entries (node/npm/cargo/uv): {:#?}", interesting);
+        }
+
+        log::info!("[Bridge] Spawning: node {}", bridge_path);
         let mut child = Command::new("node")
             .arg(bridge_path)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .kill_on_drop(true)
-            .spawn()?;
-
-        log::info!("[Bridge] Spawned PID {}", child.id().unwrap_or(0));
+            .spawn()
+            .map_err(|e| {
+                log::error!("[Bridge] spawn failed: {}", e);
+                anyhow::anyhow!("spawn node: {}", e)
+            })?;
+        log::info!("[Bridge] Spawned PID {} (spawn OK)", child.id().unwrap_or(0));
 
         let pending: Arc<Mutex<PendingMap>> = Arc::new(Mutex::new(HashMap::new()));
         let request_id = Arc::new(std::sync::atomic::AtomicU64::new(0));
@@ -88,6 +107,7 @@ impl Bridge {
             .take()
             .ok_or_else(|| anyhow::anyhow!("No stdin"))?;
         let stdin = Arc::new(tokio::sync::Mutex::new(stdin));
+        log::info!("[Bridge] stdin pipe acquired");
 
         let stdout = child
             .stdout
@@ -95,11 +115,16 @@ impl Bridge {
             .ok_or_else(|| anyhow::anyhow!("No stdout"))?;
         let pending_read = Arc::clone(&pending);
         tokio::spawn(read_bridge_stdout(stdout, pending_read));
+        log::info!("[Bridge] stdout reader spawned");
 
         if let Some(stderr) = child.stderr.take() {
             tokio::spawn(read_bridge_stderr(stderr));
+            log::info!("[Bridge] stderr reader spawned");
+        } else {
+            log::warn!("[Bridge] stderr pipe missing");
         }
 
+        log::info!("[Bridge] Bridge::new complete, child kept alive via _child");
         Ok(Self {
             stdin,
             request_id,
@@ -117,6 +142,7 @@ impl Bridge {
             "method": method,
             "params": params,
         });
+        log::info!("[Bridge] send #{} method={}", id, method);
 
         let mut line = serde_json::to_string(&msg)?;
         line.push('\n');
@@ -125,6 +151,7 @@ impl Bridge {
             stdin.write_all(line.as_bytes()).await?;
             stdin.flush().await?;
         }
+        log::info!("[Bridge] sent #{} method={}, waiting for reply", id, method);
 
         let (sender, receiver) = tokio::sync::oneshot::channel();
         {
@@ -132,12 +159,24 @@ impl Bridge {
             pending.insert(id, sender);
         }
 
-        tokio::time::timeout(Duration::from_secs(60), receiver)
+        let res = tokio::time::timeout(Duration::from_secs(60), receiver)
             .await
-            .map_err(|_| anyhow::anyhow!("Bridge request timed out"))?
-            .map_err(|_| anyhow::anyhow!("Bridge channel closed"))?
+            .map_err(|_| {
+                log::error!("[Bridge] request #{} timed out after 60s", id);
+                anyhow::anyhow!("Bridge request timed out")
+            })?
+            .map_err(|_| {
+                log::error!("[Bridge] request #{} channel closed (bridge died?)", id);
+                anyhow::anyhow!("Bridge channel closed")
+            })?;
+        match &res {
+            Ok(v) => log::info!("[Bridge] reply #{} ok ({} bytes)", id, v.to_string().len()),
+            Err(e) => log::error!("[Bridge] reply #{} error: {}", id, e),
+        }
+        res
     }
 }
+
 
 async fn read_bridge_stdout(stdout: tokio::process::ChildStdout, pending: Arc<Mutex<PendingMap>>) {
     let mut reader = BufReader::new(stdout);
@@ -147,7 +186,23 @@ async fn read_bridge_stdout(stdout: tokio::process::ChildStdout, pending: Arc<Mu
         line.clear();
         match reader.read_line(&mut line).await {
             Ok(0) => {
-                log::debug!("[Bridge] Stdout closed");
+                // EOF on the bridge's stdout means the node process died (or
+                // closed its stdout). This is the single most important log
+                // line when MCP is red on startup, and any waiter must be told
+                // instead of hanging for 60s.
+                log::error!("[Bridge] EOF on stdout: bridge process exited/unreachable");
+                // Fail every in-flight request so send() unblocks immediately.
+                let mut drained = Vec::new();
+                if let Ok(mut pending) = pending.try_lock() {
+                    for (_, sender) in pending.drain() {
+                        drained.push(sender);
+                    }
+                }
+                for sender in drained {
+                    let _ = sender.send(Err(anyhow::anyhow!(
+                        "Bridge stdout closed, process died"
+                    )));
+                }
                 return;
             }
             Ok(_) => {
@@ -155,6 +210,7 @@ async fn read_bridge_stdout(stdout: tokio::process::ChildStdout, pending: Arc<Mu
                 if trimmed.is_empty() {
                     continue;
                 }
+                log::info!("[Bridge] << {}", trimmed);
                 if let Ok(msg) = serde_json::from_str::<serde_json::Value>(trimmed) {
                     if let (Some(id), Some(result)) =
                         (msg.get("id").and_then(|v| v.as_u64()), msg.get("result"))
@@ -180,7 +236,7 @@ async fn read_bridge_stdout(stdout: tokio::process::ChildStdout, pending: Arc<Mu
                 }
             }
             Err(e) => {
-                log::debug!("[Bridge] Read error: {}", e);
+                log::error!("[Bridge] Read error: {}", e);
                 return;
             }
         }
@@ -189,23 +245,83 @@ async fn read_bridge_stdout(stdout: tokio::process::ChildStdout, pending: Arc<Mu
 
 async fn read_bridge_stderr(stderr: tokio::process::ChildStderr) {
     let mut reader = BufReader::new(stderr);
-    let mut line = String::new();
+    let mut buf: Vec<u8> = Vec::new();
     loop {
-        line.clear();
-        match reader.read_line(&mut line).await {
-            Ok(0) => break,
+        buf.clear();
+        match reader.read_until(b'\n', &mut buf).await {
+            Ok(0) => {
+                log::info!("[Bridge] stderr EOF (bridge process exited)");
+                return;
+            }
             Ok(_) => {
-                let trimmed = line.trim();
+                // Read raw bytes and lossy-decode: on Windows the bridge's
+                // stderr can carry CP1251 lines from cmd.exe (e.g. "uvx is not
+                // recognized") — read_line() would die on invalid UTF-8, close
+                // the pipe, and the bridge then dies on EPIPE when it tries to
+                // log again. Losing a mojibake line beats killing the bridge.
+                let text = String::from_utf8_lossy(&buf);
+                let trimmed = text.trim();
                 if !trimmed.is_empty() {
-                    log::debug!("[Bridge] {}", trimmed);
+                    // info! (not debug!): tauri_plugin_log defaults to Info, and
+                    // the bridge's own lines ("connected: X", "connect FAILED",
+                    // per-server statuses) are exactly what is needed to tell a
+                    // green server from a red one when triaging MCP startup.
+                    log::info!("[Bridge] {}", trimmed);
                 }
             }
-            Err(_) => break,
+            Err(e) => {
+                log::error!("[Bridge] stderr read error: {}", e);
+                return;
+            }
         }
     }
 }
 
 pub type McpState = Arc<Mutex<Option<Arc<Bridge>>>>;
+
+/// Locate mcp-bridge.mjs.
+///
+/// In an installed (bundled) app the file ships as a bundle resource next to
+/// the executable; in a dev build it lives in the project root. The old
+/// CARGO_MANIFEST_DIR-only lookup baked the build machine's path into the
+/// binary, so the installed app could not find the bridge at all.
+fn resolve_bridge_path() -> String {
+    let candidates = [
+        // Bundled app: the bridge ships inside mcp-runtime/ next to its
+        // node_modules (ESM resolution walks up from the script's directory).
+        std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|d| d.join("mcp-runtime").join("mcp-bridge.mjs"))),
+        // Dev build: project root.
+        Some(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("mcp-bridge.mjs")),
+    ];
+    for candidate in candidates.into_iter().flatten() {
+        if candidate.exists() {
+            return candidate.to_string_lossy().to_string();
+        }
+    }
+    // Fall back to the dev path so the spawn error names a real location.
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("mcp-bridge.mjs")
+        .to_string_lossy()
+        .to_string()
+}
+
+/// Locate the bundled MCP runtime (tsx + qwen-core) for the Windows qwen-core
+/// launcher. Installed apps ship it as the `mcp-runtime/` resource; dev builds
+/// use the project's own node_modules.
+fn mcp_runtime_dir() -> Option<std::path::PathBuf> {
+    let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+    let bundled = exe_dir.join("mcp-runtime");
+    if bundled.join("node_modules").exists() {
+        return Some(bundled);
+    }
+    let dev = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).to_path_buf();
+    if dev.join("node_modules").exists() {
+        return Some(dev);
+    }
+    None
+}
 
 fn get_default_config() -> HashMap<String, McpServerConfig> {
     let mut config = HashMap::new();
@@ -215,18 +331,7 @@ fn get_default_config() -> HashMap<String, McpServerConfig> {
     let projects_dir = format!("{}/Projects", home_dir);
 
     // Auto-add qwen-core (28 tools + 3 prompts) - runs from local ~/Projects/qwen-core
-    config.insert(
-        "qwen-core".to_string(),
-        McpServerConfig {
-            command: "npx".to_string(),
-            args: vec!["-y".to_string(), "qwen-core".to_string()],
-            transport_type: Some("stdio".to_string()),
-            source: Some("official".to_string()),
-            from_: Some("builtin".to_string()),
-            disabled: false,
-            ..Default::default()
-        },
-    );
+    config.insert("qwen-core".to_string(), qwen_core_config());
 
     config.insert(
         "Filesystem".to_string(),
@@ -260,23 +365,132 @@ fn get_default_config() -> HashMap<String, McpServerConfig> {
     config
 }
 
+/// The bundled qwen-core launcher (`npx -y qwen-core`) runs its `bin/qwen-core`
+/// shim, which does `child_process.spawn('npx', ['tsx', ...])` with no shell.
+/// On Windows there is no `npx.exe` (only `npx.cmd`), so that spawn dies with
+/// ENOENT and qwen-core comes up red. Run the prebuilt entry point directly
+/// instead: `node <mcp-runtime>/node_modules/qwen-core/dist/index.mjs`, falling
+/// back to `node <tsx cli> <qwen-core src/index.ts>` for older versions that
+/// only ship TypeScript sources.
+#[cfg(windows)]
+fn qwen_core_config() -> McpServerConfig {
+    let mut args: Vec<String> = Vec::new();
+    if let Some(runtime) = mcp_runtime_dir() {
+        let dist = runtime
+            .join("node_modules")
+            .join("qwen-core")
+            .join("dist")
+            .join("index.mjs");
+        if dist.exists() {
+            args.push(dist.to_string_lossy().to_string());
+        } else {
+            let tsx = runtime
+                .join("node_modules")
+                .join("tsx")
+                .join("dist")
+                .join("cli.mjs");
+            let src = runtime
+                .join("node_modules")
+                .join("qwen-core")
+                .join("src")
+                .join("index.ts");
+            if tsx.exists() && src.exists() {
+                args.push(tsx.to_string_lossy().to_string());
+                args.push(src.to_string_lossy().to_string());
+            }
+        }
+    }
+    if args.is_empty() {
+        // No runtime found: keep the portable launcher and let the connect
+        // error explain itself instead of silently pointing at a dead path.
+        args = vec!["-y".to_string(), "qwen-core".to_string()];
+        return McpServerConfig {
+            command: "npx".to_string(),
+            args,
+            transport_type: Some("stdio".to_string()),
+            source: Some("official".to_string()),
+            from_: Some("builtin".to_string()),
+            disabled: false,
+            ..Default::default()
+        };
+    }
+    McpServerConfig {
+        command: "node".to_string(),
+        args,
+        transport_type: Some("stdio".to_string()),
+        source: Some("official".to_string()),
+        from_: Some("builtin".to_string()),
+        disabled: false,
+        ..Default::default()
+    }
+}
+
+#[cfg(not(windows))]
+fn qwen_core_config() -> McpServerConfig {
+    McpServerConfig {
+        command: "npx".to_string(),
+        args: vec!["-y".to_string(), "qwen-core".to_string()],
+        transport_type: Some("stdio".to_string()),
+        source: Some("official".to_string()),
+        from_: Some("builtin".to_string()),
+        disabled: false,
+        ..Default::default()
+    }
+}
+
 fn normalize_config(
     mut config: HashMap<String, McpServerConfig>,
 ) -> HashMap<String, McpServerConfig> {
-    if cfg!(target_os = "linux") {
+    // Windows: rewrite the bundled qwen-core launcher (see qwen_core_config).
+    // This also heals a stale persisted settings.json that still has the old
+    // `npx -y qwen-core` command which cannot start on Windows.
+    #[cfg(windows)]
+    {
+        if config.contains_key("qwen-core") {
+            config.insert("qwen-core".to_string(), qwen_core_config());
+        }
+    }
+
+    // The bundled Filesystem config ships with macOS/Linux paths. On any other
+    // OS those paths don't exist, `server-filesystem` refuses to start and the
+    // MCP menu shows the server as red — so rewrite them to real local paths.
+    if cfg!(target_os = "linux") || cfg!(target_os = "windows") {
         if let Some(fs_config) = config.get_mut("Filesystem") {
+            // Drop the `@latest` tag: it forces npx to resolve the version via
+            // the npm registry on every cold start, which is slow enough to
+            // blow the connect timeout when several servers spawn in parallel.
+            // A bare package name uses the local npx cache instead.
+            fs_config.args = fs_config
+                .args
+                .iter()
+                .map(|arg| {
+                    if arg.starts_with("@modelcontextprotocol/server-filesystem@") {
+                        "@modelcontextprotocol/server-filesystem".to_string()
+                    } else {
+                        arg.clone()
+                    }
+                })
+                .collect();
+
             let home_dir = dirs::home_dir()
                 .map(|p| p.to_string_lossy().to_string())
                 .unwrap_or_else(|| "/tmp".to_string());
             let projects_dir = format!("{}/Projects", home_dir);
+            // Linux keeps `/tmp`; Windows has no such path, so use its temp dir.
+            let scratch_dir = if cfg!(target_os = "windows") {
+                std::env::temp_dir().to_string_lossy().to_string()
+            } else {
+                "/tmp".to_string()
+            };
 
-            // Replace macOS /Users paths with Linux home dir
             fs_config.args = fs_config
                 .args
                 .iter()
                 .map(|arg| {
                     if arg == "/Users" || arg.starts_with("/Users/") {
                         home_dir.clone()
+                    } else if arg == "/tmp" {
+                        scratch_dir.clone()
                     } else {
                         arg.clone()
                     }
@@ -292,9 +506,9 @@ fn normalize_config(
             if !has_projects {
                 fs_config.args.push(projects_dir);
             }
-            // Always include /tmp
-            if !fs_config.args.iter().any(|a| a == "/tmp") {
-                fs_config.args.push("/tmp".to_string());
+            // Always include a writable scratch dir
+            if !fs_config.args.iter().any(|a| a == &scratch_dir) {
+                fs_config.args.push(scratch_dir);
             }
         }
     }
@@ -345,13 +559,35 @@ pub async fn ensure_bridge(app: &tauri::AppHandle) -> Result<Arc<Bridge>, String
             cfg.args
         );
     }
-    bridge
+    let reply = bridge
         .send("updateConfig", serde_json::json!({ "config": config }))
         .await
         .map_err(|e| {
             log::error!("[Bridge] Config update failed: {}", e);
             format!("Bridge config: {}", e)
         })?;
+
+    // The bridge answers with { config, statuses }. Log every server so the
+    // console shows exactly which one is green and why a red one failed.
+    match reply.get("statuses").and_then(|s| s.as_object()) {
+        Some(statuses) => {
+            let mut up = 0usize;
+            for (name, st) in statuses {
+                if st.get("status").and_then(|s| s.as_str()) == Some("connected") {
+                    up += 1;
+                    log::info!("[Bridge]   GREEN  {}", name);
+                } else {
+                    let err = st
+                        .get("error")
+                        .and_then(|e| e.as_str())
+                        .unwrap_or("unknown error");
+                    log::error!("[Bridge]   RED    {}: {}", name, err);
+                }
+            }
+            log::info!("[Bridge] {} connected, {} failed", up, statuses.len() - up);
+        }
+        None => log::warn!("[Bridge] updateConfig reply has no statuses (old bridge?)"),
+    }
 
     *guard = Some(Arc::clone(&bridge));
     log::info!("[Bridge] Ready");
@@ -564,7 +800,27 @@ pub async fn mcp_client_update_config(
             serde_json::json!({ "config": merged.clone() }),
         )
         .await
-        .map(|v| serde_json::from_value(v).unwrap_or_default())
+        .map(|v| {
+            // New bridge shape: { config, statuses }. Log the statuses here too
+            // so a manual config change reports per-server health.
+            if let Some(statuses) = v.get("statuses").and_then(|s| s.as_object()) {
+                for (name, st) in statuses {
+                    match st.get("status").and_then(|s| s.as_str()) {
+                        Some("connected") => log::info!("[MCP]   GREEN  {}", name),
+                        _ => log::error!(
+                            "[MCP]   RED    {}: {}",
+                            name,
+                            st.get("error")
+                                .and_then(|e| e.as_str())
+                                .unwrap_or("unknown error")
+                        ),
+                    }
+                }
+            }
+            let cfg_value = v.get("config").cloned().unwrap_or(v);
+            serde_json::from_value::<HashMap<String, McpServerConfig>>(cfg_value)
+                .unwrap_or_default()
+        })
         .map_err(|e| e.to_string());
 
     match &result {
@@ -633,5 +889,122 @@ mod tests {
             .expect("No tools");
         println!("Sequential-Thinking tools: {}", tools.len());
         assert!(!tools.is_empty(), "Should have sequential thinking tools");
+    }
+
+    // --- Windows path-normalization contracts (see feat/windows-build) ---
+    // The chat sends Filesystem configs with macOS/Linux paths (`/Users`, `/tmp`).
+    // On Windows those don't exist, so `server-filesystem` refuses to start and
+    // the MCP menu shows the server as red. normalize_config must rewrite them.
+
+    // Only args that look like filesystem paths are subject to existence checks;
+    // `-y` and `@scope/pkg` are npx flags/package names, not paths.
+    fn looks_like_path(arg: &str) -> bool {
+        arg.starts_with('/') || arg.starts_with("\\\\") || arg.as_bytes().get(1) == Some(&b':')
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_default_config_has_no_posix_tmp() {
+        let cfg = normalize_config(get_default_config());
+        let fs = cfg
+            .get("Filesystem")
+            .expect("default config must contain Filesystem");
+        for a in &fs.args {
+            assert_ne!(a, "/tmp", "posix /tmp leaked into windows config");
+            assert!(
+                !a.starts_with("/Users"),
+                "macOS /Users path leaked into windows config: {}",
+                a
+            );
+            if looks_like_path(a) {
+                assert!(
+                    std::path::Path::new(a).exists(),
+                    "Filesystem path arg must exist on windows: {}",
+                    a
+                );
+            }
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_normalize_replaces_mac_and_tmp_paths() {
+        let mut m = HashMap::new();
+        m.insert(
+            "Filesystem".to_string(),
+            McpServerConfig {
+                command: "npx".to_string(),
+                args: vec![
+                    "-y".to_string(),
+                    "@modelcontextprotocol/server-filesystem".to_string(),
+                    "/Users".to_string(),
+                    "/tmp".to_string(),
+                ],
+                transport_type: Some("stdio".to_string()),
+                ..Default::default()
+            },
+        );
+
+        let out = normalize_config(m);
+        let fs = out.get("Filesystem").unwrap();
+
+        for a in &fs.args {
+            assert!(!a.starts_with("/Users"), "macOS path not replaced: {}", a);
+            assert_ne!(a, "/tmp", "posix /tmp not replaced");
+        }
+
+        let home = dirs::home_dir().unwrap().to_string_lossy().to_string();
+        let temp = std::env::temp_dir().to_string_lossy().to_string();
+        assert!(
+            fs.args.iter().any(|a| a == &home),
+            "home dir must be present after normalize: {:?}",
+            fs.args
+        );
+        assert!(
+            fs.args.iter().any(|a| a == &temp),
+            "temp dir must be present after normalize: {:?}",
+            fs.args
+        );
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_normalize_is_idempotent() {
+        let once = normalize_config(get_default_config());
+        let twice = normalize_config(once.clone());
+        assert_eq!(
+            once.get("Filesystem").unwrap().args,
+            twice.get("Filesystem").unwrap().args,
+            "normalizing twice must not duplicate or churn paths"
+        );
+    }
+
+    // Cross-platform invariant: a path that already exists on this OS must be
+    // preserved by normalize_config (we only rewrite known-bad posix paths).
+    #[test]
+    fn normalize_preserves_existing_valid_paths() {
+        let valid = std::env::temp_dir().to_string_lossy().to_string();
+        let mut m = HashMap::new();
+        m.insert(
+            "Filesystem".to_string(),
+            McpServerConfig {
+                command: "npx".to_string(),
+                args: vec![
+                    "-y".to_string(),
+                    "@modelcontextprotocol/server-filesystem".to_string(),
+                    valid.clone(),
+                ],
+                transport_type: Some("stdio".to_string()),
+                ..Default::default()
+            },
+        );
+
+        let out = normalize_config(m);
+        let fs = out.get("Filesystem").unwrap();
+        assert!(
+            fs.args.iter().any(|a| a == &valid),
+            "valid existing path was dropped: {:?}",
+            fs.args
+        );
     }
 }

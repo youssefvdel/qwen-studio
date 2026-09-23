@@ -43,6 +43,21 @@ pub fn run() {
             app.manage(state);
             events::setup_event_forwarding(app.handle());
 
+            // Warm the MCP bridge up at startup so per-server health
+            // ("GREEN <name>" / "RED <name>: <why>") lands in the log without
+            // needing someone to open the MCP settings panel first. Failures are
+            // logged, never fatal — the app must still start with a broken MCP.
+            {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    log::info!("[MCP] Startup warm-up: connecting configured servers");
+                    match mcp::ensure_bridge(&handle).await {
+                        Ok(_) => log::info!("[MCP] Startup warm-up finished"),
+                        Err(e) => log::error!("[MCP] Startup warm-up failed: {}", e),
+                    }
+                });
+            }
+
             // Deep-link disabled: auth now handled inside WebView (no external browser)
             // #[cfg(desktop)]
             // {

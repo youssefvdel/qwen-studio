@@ -14,7 +14,8 @@
     "tauri:build": "WEBKIT_DISABLE_COMPOSITING_MODE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1 tauri build",
     "tauri:build:rpm": "WEBKIT_DISABLE_COMPOSITING_MODE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1 tauri build --bundles rpm",
     "tauri:build:deb": "WEBKIT_DISABLE_COMPOSITING_MODE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1 tauri build --bundles deb",
-    "tauri:build:appimage": "WEBKIT_DISABLE_COMPOSITING_MODE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1 tauri build --bundles appimage"
+    "tauri:build:appimage": "WEBKIT_DISABLE_COMPOSITING_MODE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1 tauri build --bundles appimage",
+    "tauri:build:win": "tauri build --bundles nsis,msi"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

@@ -156,6 +156,22 @@ npm run tauri:build:rpm    # Fedora/RHEL
 npm run tauri:build:appimage   # Universal AppImage
 ```
 
+### Build on Windows
+
+Windows-сборка идёт через отдельный CI-workflow [`.github/workflows/windows-build.yml`](.github/workflows/windows-build.yml) (`windows-latest` + MSVC, бандлы `.exe` NSIS и `.msi` WiX). Запустить можно вручную через **Actions → Windows Build → Run workflow**.
+
+Локально на Windows:
+
+```powershell
+# Требования: Node.js 22+, Rust stable (MSVC target), Visual Studio 2022 Build Tools (C++)
+npm install
+npm run tauri:build:win    # tauri build --bundles nsis,msi
+```
+
+Артефакты: `target/release/bundle/nsis/*.exe`, `target/release/bundle/msi/*.msi`.
+
+> GTK-зависимости (`gtk`, `glib`) подключаются только под Linux (`cfg(target_os = "linux")`), поэтому на Windows они не линкуются. Updater-подписи (`.sig`) требуют `TAURI_SIGNING_PRIVATE_KEY`; в CI без секрета `createUpdaterArtifacts` отключается автоматически.
+
 ### Code Quality
 
 ```bash

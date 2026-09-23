@@ -1,0 +1,121 @@
+name: Windows Build
+
+# Отдельный workflow для сборки под Windows.
+# Не пересекается с release.yml (Linux-артефакты): здесь только windows-latest + MSVC.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/windows-build
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  # Код-качество и тесты (конвенция проекта: clippy -D warnings MUST pass).
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+
+      - name: Setup Rust (MSVC)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+          components: rustfmt, clippy
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy (deny warnings)
+        run: cargo clippy --all-targets -- -D warnings
+
+      # Интеграционные тесты mcp.rs спавнят node mcp-bridge.mjs и реальные
+      # MCP-серверы через npx, поэтому требуют node_modules и сеть.
+      - name: Run Rust tests
+        run: cargo test --release -- --nocapture
+
+  # Сборка Windows-дистрибутивов (.exe NSIS + .msi WiX).
+  build:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+
+      - name: Setup Rust (MSVC)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Install Tauri CLI
+        run: npm install -g @tauri-apps/cli@latest
+
+      # frontendDist указывает на ./dist (gitignored placeholder). Tauri требует
+      # существующую папку, поэтому гарантируем её наличие с минимальной заглушкой.
+      - name: Ensure frontend dist placeholder
+        shell: pwsh
+        run: |
+          if (-not (Test-Path dist)) { New-Item -ItemType Directory dist | Out-Null }
+          if (-not (Test-Path dist/index.html)) {
+            Set-Content -Path dist/index.html -Value '<!doctype html><title>Qwen Studio</title>'
+          }
+
+      # Updater-артефакты (.sig) требуют приватный ключ. Если секретов нет —
+      # отключаем createUpdaterArtifacts, иначе `tauri build` упадёт на бандлинге.
+      - name: Disable updater artifacts when signing key is absent
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY) {
+            $c = Get-Content tauri.conf.json -Raw | ConvertFrom-Json
+            $c.bundle.createUpdaterArtifacts = $false
+            $c | ConvertTo-Json -Depth 100 | Set-Content tauri.conf.json -Encoding utf8
+            Write-Host "createUpdaterArtifacts disabled (no signing key present)"
+          }
+
+      - name: Build Tauri app (Windows)
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx tauri build --bundles nsis,msi
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: qwen-studio-windows
+          path: |
+            target/release/bundle/nsis/*.exe
+            target/release/bundle/msi/*.msi
+          if-no-files-found: error

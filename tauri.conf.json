@@ -17,7 +17,8 @@
     "createUpdaterArtifacts": true,
     "targets": "all",
     "resources": [
-      "mcp-proxy-server.js"
+      "mcp-proxy-server.js",
+      "mcp-runtime/"
     ],
     "icon": [
       "icons/32x32.png",

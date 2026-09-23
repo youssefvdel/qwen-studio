@@ -5,3 +5,4 @@
 /.obsidian
 node_modules
 dist
+mcp-runtime/
