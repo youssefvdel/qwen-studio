@@ -130,8 +130,8 @@ sequenceDiagram
 
 - Node.js 22+
 - Rust stable toolchain
-- Linux development libraries:
-  - **Debian/Ubuntu:** `sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf`
+- Linux development libraries (required for `pkg-config` / WebKitGTK — fresh clones fail on `glib-2.0.pc` / `webkit2gtk-4.1` without these):
+  - **Debian/Ubuntu (24.04 / Noble, Zorin OS 18):** `sudo apt update && sudo apt install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev pkg-config`
   - **Fedora:** `sudo dnf install gtk3-devel webkit2gtk4.1-devel libappindicator-gtk3-devel librsvg2-devel`
   - **Arch:** `sudo pacman -S webkit2gtk-4.1 libappindicator-gtk3 librsvg`
 
