@@ -616,7 +616,7 @@ pub async fn open_external_link(app: tauri::AppHandle, url: String) -> Result<bo
         log::info!("[Auth] Navigating to login page in WebView: {}", url);
         // Navigate the current window to the auth URL
         if let Some(window) = app.get_webview_window("main") {
-            let _ = window.eval(&format!(
+            let _ = window.eval(format!(
                 "window.location.href = '{}';",
                 url.replace('\'', "\\'")
             ));
