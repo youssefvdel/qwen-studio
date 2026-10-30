@@ -17,7 +17,8 @@
     "createUpdaterArtifacts": true,
     "targets": "all",
     "resources": [
-      "mcp-proxy-server.js"
+      "mcp-proxy-server.js",
+      "mcp-bridge.mjs"
     ],
     "icon": [
       "icons/32x32.png",
@@ -28,7 +29,7 @@
     ],
     "linux": {
       "deb": {
-        "depends": ["webkit2gtk-4.1"],
+        "depends": ["libwebkit2gtk-4.1-0"],
         "desktopTemplate": "qwen-studio.desktop"
       },
       "rpm": {

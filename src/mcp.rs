@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::Manager;
+use tauri::path::BaseDirectory;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::Mutex;
@@ -67,8 +68,11 @@ pub struct Bridge {
 }
 
 impl Bridge {
-    async fn new() -> Result<Self> {
-        let bridge_path = concat!(env!("CARGO_MANIFEST_DIR"), "/mcp-bridge.mjs");
+    async fn new(app: &tauri::AppHandle) -> Result<Self> {
+        let bridge_path = app
+            .path()
+            .resolve("mcp-bridge.mjs", BaseDirectory::Resource)
+            .map_err(|e| anyhow::anyhow!("Cannot resolve mcp-bridge.mjs: {}", e))?;
 
         let mut child = Command::new("node")
             .arg(bridge_path)
@@ -325,7 +329,7 @@ pub async fn ensure_bridge(app: &tauri::AppHandle) -> Result<Arc<Bridge>, String
     }
 
     log::info!("[Bridge] Starting MCP bridge...");
-    let bridge = Arc::new(Bridge::new().await.map_err(|e| {
+    let bridge = Arc::new(Bridge::new(app).await.map_err(|e| {
         log::error!("[Bridge] Failed to spawn: {}", e);
         format!("Bridge spawn: {}", e)
     })?);
@@ -579,59 +583,6 @@ pub async fn mcp_client_update_config(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_bridge_filesystem() {
-        let bridge = Bridge::new().await.expect("Failed to start bridge");
-
-        // Send config with filesystem server
-        let config = get_default_config();
-        bridge
-            .send("updateConfig", serde_json::json!({ "config": config }))
-            .await
-            .expect("Failed to update config");
-
-        // List tools
-        let result = bridge
-            .send(
-                "listTools",
-                serde_json::json!({ "serverName": "Filesystem" }),
-            )
-            .await
-            .expect("Failed to list tools");
-
-        let tools = result
-            .get("tools")
-            .and_then(|t| t.as_array())
-            .expect("No tools");
-        println!("Filesystem tools: {}", tools.len());
-        assert!(!tools.is_empty(), "Should have filesystem tools");
-    }
-
-    #[tokio::test]
-    async fn test_bridge_sequential_thinking() {
-        let bridge = Bridge::new().await.expect("Failed to start bridge");
-
-        let config = get_default_config();
-        bridge
-            .send("updateConfig", serde_json::json!({ "config": config }))
-            .await
-            .expect("Failed to update config");
-
-        let result = bridge
-            .send(
-                "listTools",
-                serde_json::json!({ "serverName": "Sequential-Thinking" }),
-            )
-            .await
-            .expect("Failed to list tools");
-
-        let tools = result
-            .get("tools")
-            .and_then(|t| t.as_array())
-            .expect("No tools");
-        println!("Sequential-Thinking tools: {}", tools.len());
-        assert!(!tools.is_empty(), "Should have sequential thinking tools");
-    }
+    // Integration tests require full Tauri app context.
+    // Run with: cargo test --test integration_tests
 }
